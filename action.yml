@@ -1,0 +1,29 @@
+name: Setup gungraun-runner and valgrind
+description: Installs gungraun-runner and valgrind on Linux runners
+branding:
+  icon: terminal
+  color: purple
+
+  # TODO: Support custom valgrind download url and sha
+  # TODO: Support building valgrind from source
+inputs:
+  runner-version:
+    description: "Version of gungraun-runner to install (e.g. v0.1.0, latest, auto)"
+    required: false
+    default: "auto"
+  target:
+    description: "Rust target triple (e.g. x86_64-unknown-linux-gnu). Auto-detected from rustc if omitted."
+    required: false
+    default: ""
+  valgrind-version:
+    description: "Valgrind release tag (e.g. v0.1.1, latest)"
+    required: false
+    default: "latest"
+  github-token:
+    description: "GitHub token for API requests (avoids rate limits on release downloads)"
+    required: false
+    default: ""
+
+runs:
+  using: "node20"
+  main: "dist/index.js"

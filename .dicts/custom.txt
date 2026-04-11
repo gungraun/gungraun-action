@@ -1,0 +1,8 @@
+binstall
+endgroup
+gungraun
+INSTALL_DIR
+noconfirm
+pacman
+pkgid
+rustc
