@@ -145,9 +145,12 @@ export async function installRunnerFromRelease(version: string): Promise<boolean
                 core.exportVariable("GUNGRAUN_RUNNER", path.join(installDir, "gungraun-runner"));
             }
 
-            // FIX: Use fallback `gungraun-runner $version` where version is without the v prefix
-            // FIX: Use label `gungraun-runner`
-            await logInstalledVersion(path.join(installDir, "gungraun-runner"), "gungraun-runner");
+            const normalized = tag[0] === "v" ? tag.slice(1) : tag;
+            await logInstalledVersion(
+                path.join(installDir, "gungraun-runner"),
+                "gungraun-runner",
+                `gungraun-runner ${normalized}`,
+            );
             return true;
         } catch (error) {
             printError(
@@ -169,8 +172,15 @@ export async function installRunnerFromSource(version: string): Promise<boolean>
             }
             await exec.exec(getCargoBin(), args);
 
-            // FIX: Use fallback `gungraun-runner $version` where version is without the v prefix
-            await logInstalledVersion("gungraun-runner", "gungraun-runner");
+            if (formatted) {
+                await logInstalledVersion(
+                    "gungraun-runner",
+                    "gungraun-runner",
+                    `gungraun-runner ${formatted}`,
+                );
+            } else {
+                await logInstalledVersion("gungraun-runner", "gungraun-runner");
+            }
             return true;
         } catch (error) {
             printError(
@@ -201,7 +211,15 @@ export async function installRunnerWithBinstall(version: string): Promise<boolea
 
             const grPath = await io.which("gungraun-runner", false);
             if (grPath) {
-                await logInstalledVersion("gungraun-runner", "gungraun-runner");
+                if (formatted) {
+                    await logInstalledVersion(
+                        "gungraun-runner",
+                        "gungraun-runner",
+                        `gungraun-runner ${formatted}`,
+                    );
+                } else {
+                    await logInstalledVersion("gungraun-runner", "gungraun-runner");
+                }
             }
 
             return true;

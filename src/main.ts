@@ -15,6 +15,11 @@ import {
 } from "./install";
 import { getCargoBin, bail, printInfo } from "./utils";
 
+export interface RunnerVersion {
+    tag: string;
+    version: string;
+}
+
 /** Main entry point: validates environment, detects versions, and installs gungraun-runner and valgrind. */
 async function run(): Promise<void> {
     if (process.platform !== "linux") {
