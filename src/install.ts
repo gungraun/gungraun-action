@@ -24,7 +24,7 @@ import {
     printInfo,
     withGroup,
 } from "./utils";
-import { Version } from "./version";
+import { ResolvedVersion, Version } from "./version";
 import { RunnerStrategy, ValgrindStrategy } from "./inputs";
 
 const VALGRIND_BUILD_DEPS: Record<string, string[]> = {
@@ -287,7 +287,7 @@ export async function installValgrindFromBuilder(
     valgrindShaUrl: string,
 ): Promise<boolean> {
     return withGroup("Installing valgrind from builder", async () => {
-        const { packageManager, platform } = detectPlatform();
+        const { packageManager, platform } = await detectPlatform();
 
         try {
             let extractDir;
@@ -325,10 +325,7 @@ export async function installValgrindFromBuilder(
             }
 
             const entries = await fs.promises.readdir(extractDir);
-            let args = ["mv"];
-            args.concat(entries);
-            args.push("/");
-            await exec.exec("sudo", args);
+            await exec.exec("sudo", ["mv", ...entries.map((e) => path.join(extractDir, e)), "/"]);
 
             await logInstalledVersion("valgrind", "valgrind");
         } catch (error) {
@@ -340,6 +337,7 @@ export async function installValgrindFromBuilder(
         try {
             // TODO: Print a warning that the debug symbols could not be installed and have to be
             // installed manually if tools like memcheck are intended to be used.
+            // TODO: Check if this is necessary in the other installValgrind* methods, too
             if (packageManager) {
                 await installWithPackageManager(packageManager, DEBUGINFO_PACKAGES[packageManager]);
             }
@@ -352,10 +350,14 @@ export async function installValgrindFromBuilder(
     });
 }
 
+// TODO: If there is a specific version requested, then the package manager should not install
+// another version. Also, add a `auto` value in addition to `latest` as valid input. And use latest
+// as the latest possible version from sourceware. `auto` would install any version with the package
+// manager. the other strategies would use `latest`.
 /** Installs valgrind using the system package manager. */
 export async function installValgrindWithPackageManager(): Promise<boolean> {
     return withGroup("Installing valgrind via package manager", async () => {
-        const { packageManager } = detectPlatform();
+        const { packageManager } = await detectPlatform();
 
         if (!packageManager || !VALGRIND_PACKAGES[packageManager]) {
             printError(
@@ -380,9 +382,10 @@ export async function installValgrindWithPackageManager(): Promise<boolean> {
         }
     });
 }
+
 /** Installs build dependencies required to compile valgrind from source. */
 export async function installValgrindBuildDeps(): Promise<boolean> {
-    const { packageManager } = detectPlatform();
+    const { packageManager } = await detectPlatform();
 
     if (!packageManager || !VALGRIND_BUILD_DEPS[packageManager]) {
         printError(
@@ -429,17 +432,15 @@ export async function installValgrindFromSource(
             const sourceDir = path.join(extractDir, `valgrind-${resolvedVersion}`);
 
             await exec.exec("./autogen.sh", [], { cwd: sourceDir });
-            // TODO: valgrind-configure-args in action.yml
             await exec.exec("./configure", ["--prefix=/usr"], { cwd: sourceDir });
 
             const ncpus = os.cpus().length;
-            // TODO: valgrind-make-args in action.yml
             await exec.exec("make", [`-j${ncpus}`, "BUILD_DOCS=none"], { cwd: sourceDir });
             await exec.exec("sudo", ["make", "install"], { cwd: sourceDir });
 
             await logInstalledVersion("valgrind", "valgrind", `valgrind-${resolvedVersion}`);
 
-            const { packageManager } = detectPlatform();
+            const { packageManager } = await detectPlatform();
             if (packageManager) {
                 await installWithPackageManager(packageManager, DEBUGINFO_PACKAGES[packageManager]);
             }

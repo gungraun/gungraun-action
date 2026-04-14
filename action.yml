@@ -4,13 +4,19 @@ branding:
   icon: terminal
   color: purple
 
-  # TODO: Support custom valgrind download url and sha
-  # TODO: Support building valgrind from source
+  # TODO: STOOPPED HERE
+# TODO: document that empty strategies are valid and skips the installation of
+# this tool entirely
+# TODO: Add none as an alias for the empty string in strategies?
 inputs:
   github-token:
     description: "GitHub token for API requests (avoids rate limits on release downloads)"
     required: false
     default: ""
+  install-build-deps:
+    description: "Install build dependencies before building valgrind from source"
+    required: false
+    default: "false"
   runner-strategy:
     description: "Ordered comma-separated list of runner install strategies to try. Valid values: binstall, release, source"
     required: false
@@ -23,10 +29,10 @@ inputs:
     description: "Version of gungraun-runner to install (e.g. v0.1.0, latest, auto)"
     required: false
     default: "auto"
-  valgrind-version:
-    description: "Valgrind release tag (e.g. v0.1.1, latest)"
+  valgrind-sha-url:
+    description: "The url to the sha sum used to verify the tar archive for valgrind-url"
     required: false
-    default: "latest"
+    default: ""
   valgrind-strategy:
     description: "Ordered comma-separated list of valgrind install strategies to try. Valid values: builder, system, source"
     required: false
@@ -35,14 +41,10 @@ inputs:
     description: "The url to the tar archive containing the valgrind build for the valgrind-strategy: builder"
     required: false
     default: ""
-  valgrind-sha-url:
-    description: "The url to the sha sum used to verify the tar archive for valgrind-url"
+  valgrind-version:
+    description: "Valgrind release tag (e.g. v0.1.1, latest)"
     required: false
-    default: ""
-  install-build-deps:
-    description: "Install build dependencies before building valgrind from source"
-    required: false
-    default: "false"
+    default: "latest"
 
 runs:
   using: "node20"

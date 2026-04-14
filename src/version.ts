@@ -61,11 +61,11 @@ export class ResolvedVersion extends Version {
     }
 
     static from_tag(tag: string): ResolvedVersion {
-        if (tag.trim() === "latest") {
+        let version = super.from_tag(tag);
+        if (version.isLatest()) {
             throw new Error("A resolved version cannot be 'latest'");
         }
 
-        let version = super.from_tag(tag);
         return ResolvedVersion.from_version(version);
     }
 

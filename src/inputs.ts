@@ -97,22 +97,20 @@ export function parseStrategies<T extends string>(
     valid: readonly T[],
     label: string,
 ): T[] {
-    const strategies = input
-        .split(",")
-        .map((s) => s.trim().toLowerCase() as T)
-        .filter((s) => s.length > 0);
+    const strategies: Set<T> = new Set(
+        input
+            .split(",")
+            .map((s) => s.trim().toLowerCase() as T)
+            .filter((s) => s.length > 0),
+    );
 
-    for (const s of strategies) {
-        if (!valid.includes(s)) {
-            throw new Error(`Invalid ${label} strategy '${s}'. Valid values: ${valid.join(", ")}`);
+    for (const v of valid) {
+        if (!strategies.has(v)) {
+            throw new Error(`Invalid ${label} strategy '${v}'. Valid values: ${valid.join(", ")}`);
         }
     }
 
-    if (strategies.length === 0) {
-        throw new Error(`No ${label} strategies specified`);
-    }
-
-    return strategies;
+    return Array.from(strategies);
 }
 
 export async function parseValgrindStrategies(): Promise<ValgrindStrategy[]> {

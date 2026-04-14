@@ -64,9 +64,8 @@ export function detectShaVariant(hash: string): string | null {
     return "sha" + variant;
 }
 
-// FIX: should be async
 /** Detects the platform, version, and package manager from /etc/os-release. */
-export function detectPlatform(): PlatformInfo {
+export async function detectPlatform(): Promise<PlatformInfo> {
     if (!fs.existsSync("/etc/os-release")) {
         throw new Error("Cannot detect platform: /etc/os-release not found");
     }
