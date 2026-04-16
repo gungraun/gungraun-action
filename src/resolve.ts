@@ -65,7 +65,7 @@ async function resolveLatestTag(
         throw new Error(notFoundMessage + `: ${(error as Error).message}`);
     }
 
-    return ResolvedVersion.from_tag(tag);
+    return ResolvedVersion.fromString(tag);
 }
 
 /** Resolves the valgrind asset name matching the given architecture and platform. */
@@ -110,7 +110,7 @@ export async function resolveValgrindBuilderAssetName(
             return null;
         } else {
             return {
-                version: ResolvedVersion.from_version(version),
+                version: ResolvedVersion.fromVersion(version),
                 name: match.name,
             };
         }
@@ -141,7 +141,7 @@ export async function fetchRunnerVersions(githubToken: string): Promise<Resolved
             owner,
             repo: repoName,
         });
-        return data.map((d) => ResolvedVersion.from_tag(d.tag_name));
+        return data.map((d) => ResolvedVersion.fromString(d.tag_name));
     } catch (error) {
         throw new Error(`Failed to fetch gungraun-runner versions: ${(error as Error).message}`);
     }
@@ -175,7 +175,7 @@ export async function fetchSortedValgrindVersions(): Promise<ResolvedVersion[]> 
         .trim()
         .split("\n")
         .filter((l) => !l.includes("^{}"))
-        .map((l) => ResolvedVersion.from_valgrind_tag(l))
+        .map((l) => ResolvedVersion.fromValgrindTag(l))
         .sort((a, b) => a.compare(b));
 
     if (versions.length === 0) {

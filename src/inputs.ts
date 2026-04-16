@@ -92,7 +92,7 @@ export async function parseRunnerVersion(githubToken: string): Promise<Version> 
         let validVersions: ResolvedVersion[];
         try {
             validVersions = await fetchRunnerVersions(githubToken);
-            runnerVersion = Version.from_tag(runnerVersionInput);
+            runnerVersion = Version.fromString(runnerVersionInput);
         } catch (error) {
             bail(`Failed to fetch gungraun-runner versions: ${(error as Error).message}`);
         }
@@ -161,7 +161,7 @@ export async function parseValgrindVersion(): Promise<Version> {
 
     try {
         valgrindVersionInput = core.getInput("valgrind-version") || "latest";
-        valgrindVersion = Version.from_tag(valgrindVersionInput);
+        valgrindVersion = Version.fromString(valgrindVersionInput);
     } catch (error) {
         bail(`Invalid valgrind-version: ${(error as Error).message} `);
     }

@@ -113,7 +113,7 @@ export async function detectProjectVersion(): Promise<ResolvedVersion> {
         }
 
         if (pkgs?.length === 1 && pkgs[0].version) {
-            return ResolvedVersion.from_tag(pkgs[0].version);
+            return ResolvedVersion.fromString(pkgs[0].version);
         }
         if (pkgs && pkgs.length > 1) {
             const versions = pkgs.map((p: { version: string }) => p.version).join(", ");
@@ -128,7 +128,7 @@ export async function detectProjectVersion(): Promise<ResolvedVersion> {
             silent: true,
             ignoreReturnCode: true,
         });
-        return ResolvedVersion.from_tag(stdout);
+        return ResolvedVersion.fromString(stdout);
     } catch {
         // Fall through to error
     }

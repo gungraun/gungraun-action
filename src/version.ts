@@ -9,7 +9,7 @@ export class Version {
         this.patch = patch;
     }
 
-    static from_valgrind_tag(tag: string): Version {
+    static fromValgrindTag(tag: string): Version {
         const match = tag.match(/VALGRIND_(\d+)_(\d+)_(\d+)/);
         if (match) {
             return new Version(+match[1], +match[2], +match[3]);
@@ -18,21 +18,21 @@ export class Version {
         throw new Error(`Invalid valgrind version tag: ${tag}`);
     }
 
-    static from_tag(tag: string): Version {
-        const lowerTag = tag.trim().toLowerCase();
+    static fromString(str: string): Version {
+        const lower = str.trim().toLowerCase();
 
-        if (lowerTag === "latest") {
+        if (lower === "latest") {
             return this.latest();
-        } else if (lowerTag === "auto") {
+        } else if (lower === "auto") {
             return this.auto();
         }
 
-        const match = lowerTag.match(/[v]?(\d+)\.(\d+)\.(\d+)/);
+        const match = lower.match(/[v]?(\d+)\.(\d+)\.(\d+)/);
         if (match) {
             return new Version(+match[1], +match[2], +match[3]);
         }
 
-        throw new Error(`Invalid version tag: ${tag}`);
+        throw new Error(`Invalid version string: ${str}`);
     }
 
     static latest(): Version {
@@ -100,21 +100,21 @@ export class ResolvedVersion extends Version {
         super(major, minor, patch);
     }
 
-    static from_valgrind_tag(tag: string): ResolvedVersion {
-        let version = super.from_valgrind_tag(tag);
-        return ResolvedVersion.from_version(version);
+    static fromValgrindTag(tag: string): ResolvedVersion {
+        let version = super.fromValgrindTag(tag);
+        return ResolvedVersion.fromVersion(version);
     }
 
-    static from_tag(tag: string): ResolvedVersion {
-        let version = super.from_tag(tag);
+    static fromString(str: string): ResolvedVersion {
+        let version = super.fromString(str);
         if (version.isLatest() || version.isAuto()) {
             throw new Error("A resolved version cannot be 'latest' or 'auto'");
         }
 
-        return ResolvedVersion.from_version(version);
+        return ResolvedVersion.fromVersion(version);
     }
 
-    static from_version(version: Version): ResolvedVersion {
+    static fromVersion(version: Version): ResolvedVersion {
         return new ResolvedVersion(version.major, version.minor, version.patch);
     }
 
@@ -139,16 +139,10 @@ export class ResolvedVersion extends Version {
     }
 
     toString(): string {
-        if (this.isLatest()) {
-            throw new Error("A resolved version cannot be: 'latest'");
-        }
         return `${this.major}.${this.minor}.${this.patch}`;
     }
 
     withPrefix(): string {
-        if (this.isLatest()) {
-            throw new Error("A resolved version cannot be: 'latest'");
-        }
         return `v${this.toString()}`;
     }
 }

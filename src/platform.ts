@@ -146,7 +146,7 @@ export class FetchLatestPackageVersion implements PackageManagerVisitor<
 
     static getLatestVersion(versions: string[] | undefined | null): ResolvedVersion | null {
         const resolvedVersions = versions
-            ?.map((v) => ResolvedVersion.from_tag(v))
+            ?.map((v) => ResolvedVersion.fromString(v))
             .sort((a, b) => a.compare(b));
 
         if (resolvedVersions) {
