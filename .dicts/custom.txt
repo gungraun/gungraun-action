@@ -1,8 +1,10 @@
+AGENTS
 armv7
 binstall
 debuginfo
 debuginfod
 endgroup
+fakeDirents
 gungraun
 INSTALL_DIR
 libc
@@ -11,6 +13,7 @@ linuxmint
 memcheck
 ncpus
 noconfirm
+opencode
 pacman
 pkgid
 rustc
