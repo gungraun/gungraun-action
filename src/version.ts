@@ -58,6 +58,10 @@ export class Version {
         return this.major - other.major || this.minor - other.minor || this.patch - other.patch;
     }
 
+    equals(other: this): boolean {
+        return this.compare(other) === 0;
+    }
+
     isAuto(): boolean {
         return this.major === -2;
     }

@@ -1,7 +1,6 @@
 import * as core from "@actions/core";
 import { ResolvedVersion, Version } from "./version";
 import { detectProjectVersion, detectTarget } from "./detect";
-import { bail } from "./utils";
 import { fetchRunnerVersions, fetchSortedValgrindVersions } from "./resolve";
 
 export type ValgrindStrategy = "builder" | "system" | "source" | "none";
@@ -10,8 +9,8 @@ export type RunnerStrategy = "binstall" | "release" | "source" | "none";
 export const VALID_VALGRIND_STRATEGIES: readonly ValgrindStrategy[] = [
     "builder",
     "none",
-    "system",
     "source",
+    "system",
 ];
 export const VALID_RUNNER_STRATEGIES: readonly RunnerStrategy[] = [
     "binstall",
@@ -74,7 +73,7 @@ export async function parseRunnerStrategies(): Promise<RunnerStrategy[]> {
             "runner",
         );
     } catch (error) {
-        bail(`Invalid runner-strategy: ${(error as Error).message}`);
+        throw new Error(`Invalid runner-strategy: ${(error as Error).message}`);
     }
 }
 
@@ -86,7 +85,9 @@ export async function parseRunnerVersion(githubToken: string): Promise<Version> 
         try {
             runnerVersion = await detectProjectVersion();
         } catch (error) {
-            bail(`Unable to detect gungraun-runner version: ${(error as Error).message}`);
+            throw new Error(
+                `Unable to detect gungraun-runner version: ${(error as Error).message}`,
+            );
         }
     } else {
         let validVersions: ResolvedVersion[];
@@ -94,11 +95,16 @@ export async function parseRunnerVersion(githubToken: string): Promise<Version> 
             validVersions = await fetchRunnerVersions(githubToken);
             runnerVersion = Version.fromString(runnerVersionInput);
         } catch (error) {
-            bail(`Failed to fetch gungraun-runner versions: ${(error as Error).message}`);
+            throw new Error(
+                `Failed to fetch gungraun-runner versions: ${(error as Error).message}`,
+            );
         }
 
-        if (!runnerVersion.isAutoOrLatest() && !validVersions.includes(runnerVersion)) {
-            bail(
+        if (
+            !runnerVersion.isAutoOrLatest() &&
+            !validVersions.some((v) => v.equals(runnerVersion))
+        ) {
+            throw new Error(
                 `Invalid runner-version ${runnerVersionInput}: Valid versions are:
 ${validVersions.join(", ")}`,
             );
@@ -124,10 +130,10 @@ export function parseStrategies<T extends string>(
         return ["none" as T];
     }
 
-    for (const v of valid) {
-        if (!strategies.has(v)) {
-            throw new Error(`Invalid ${label} strategy '${v}'. Valid values: ${valid.join(", ")}`);
-        } else if (v === "none") {
+    for (const s of strategies) {
+        if (!valid.includes(s)) {
+            throw new Error(`Invalid ${label} strategy '${s}'. Valid values: ${valid.join(", ")}`);
+        } else if (s === "none") {
             return ["none" as T];
         }
     }
@@ -143,7 +149,7 @@ export async function parseValgrindStrategies(): Promise<ValgrindStrategy[]> {
             "valgrind",
         );
     } catch (error) {
-        bail(`Invalid valgrind-strategy: ${(error as Error).message}`);
+        throw new Error(`Invalid valgrind-strategy: ${(error as Error).message}`);
     }
 }
 
@@ -163,7 +169,7 @@ export async function parseValgrindVersion(): Promise<Version> {
         valgrindVersionInput = core.getInput("valgrind-version") || "latest";
         valgrindVersion = Version.fromString(valgrindVersionInput);
     } catch (error) {
-        bail(`Invalid valgrind-version: ${(error as Error).message} `);
+        throw new Error(`Invalid valgrind-version: ${(error as Error).message} `);
     }
 
     if (!valgrindVersion.isAutoOrLatest()) {
@@ -173,12 +179,12 @@ export async function parseValgrindVersion(): Promise<Version> {
                 (v) => v.major >= 3 && v.minor >= 16,
             );
         } catch {
-            bail(`Failed to validate valgrind version`);
+            throw new Error(`Failed to validate valgrind version`);
         }
 
-        if (!validVersions.includes(valgrindVersion)) {
-            bail(`Invalid valgrind-version '${valgrindVersionInput}': Supported versions are:
-${validVersions.join(", ")}`);
+        if (!validVersions.some((v) => v.equals(valgrindVersion))) {
+            throw new Error(`Invalid valgrind-version '${valgrindVersionInput}': \
+Supported versions are: ${validVersions.join(", ")}`);
         }
     }
 

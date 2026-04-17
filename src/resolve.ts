@@ -152,7 +152,7 @@ export async function fetchRunnerVersions(githubToken: string): Promise<Resolved
 export async function resolveValgrindVersion(version: Version): Promise<ResolvedVersion> {
     const versions = await fetchSortedValgrindVersions();
     if (!version.isAutoOrLatest()) {
-        if (versions.includes(version)) {
+        if (versions.some((v) => v.equals(version))) {
             return version;
         } else {
             throw new Error(`Invalid version ${version}`);
