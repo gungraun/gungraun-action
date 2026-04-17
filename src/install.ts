@@ -6,14 +6,14 @@ import * as path from "path";
 import * as os from "os";
 import { detectArch, detectPlatform, detectTarget } from "./detect";
 import {
-    downloadAndExtractRunner as downloadAndExtractRunner,
+    downloadAndExtractRunner,
     downloadAndExtractValgrind,
     downloadAndExtractValgrindSource,
     downloadAndExtractValgrindUrl,
 } from "./download";
 import {
     resolveValgrindBuilderAssetName,
-    resolveValgrindVersion as resolveValgrindVersion,
+    resolveValgrindVersion,
     resolveRunnerVersion,
 } from "./resolve";
 import {
@@ -27,7 +27,7 @@ import {
 } from "./utils";
 import { Version } from "./version";
 import { RunnerStrategy, ValgrindStrategy } from "./inputs";
-import { PackagesInstaller as PackagesInstaller, FetchLatestPackageVersion } from "./platform";
+import { PackagesInstaller, FetchLatestPackageVersion } from "./platform";
 
 export function getRunnerInstallDir(): { dir: string; needsExport: boolean } | null {
     if (process.env.CARGO_INSTALL_ROOT) {
@@ -117,13 +117,10 @@ export async function installRunnerFromRelease(
             const resolvedVersion = await resolveRunnerVersion(version, githubToken);
             const extractDir = await downloadAndExtractRunner(resolvedVersion, target, githubToken);
 
-            const binaryPath = path.join(extractDir, "gungraun-runner");
-            if (!fs.existsSync(binaryPath)) {
-                const found = await findBinary(extractDir, "gungraun-runner");
-                if (!found) {
-                    printError("Could not find gungraun-runner binary in archive");
-                    return false;
-                }
+            const runnerPath = await findBinary(extractDir, "gungraun-runner");
+            if (!runnerPath) {
+                printError("Could not find gungraun-runner binary in archive");
+                return false;
             }
 
             const result = getRunnerInstallDir();
@@ -133,13 +130,13 @@ export async function installRunnerFromRelease(
             }
             const { dir: installDir, needsExport } = result;
 
-            await exec.exec("chmod", ["+x", binaryPath]);
+            await exec.exec("chmod", ["+x", runnerPath]);
 
             if (!fs.existsSync(installDir)) {
                 fs.mkdirSync(installDir, { recursive: true });
             }
 
-            await io.mv(binaryPath, path.join(installDir, "gungraun-runner"));
+            await io.mv(runnerPath, path.join(installDir, "gungraun-runner"));
 
             if (needsExport) {
                 core.addPath(installDir);
@@ -172,7 +169,7 @@ export async function installRunnerFromSource(version: Version, target?: string)
                 args.push("--version", version.toString());
             }
             if (target) {
-                args.push("--target", `${target}`);
+                args.push("--target", target);
             }
 
             await exec.exec(getCargoBin(), args);
@@ -207,7 +204,7 @@ export async function installRunnerWithBinstall(
         try {
             const args = ["binstall", "-y", "--disable-strategies", "compile"];
             if (target) {
-                args.push(`--targets`, `${target}`);
+                args.push(`--targets`, target);
             }
             if (version.isLatest()) {
                 args.push("gungraun-runner");
@@ -351,9 +348,7 @@ export async function installValgrindWithPackageManager(version: Version): Promi
         const { packageManager } = await detectPlatform();
 
         if (!packageManager) {
-            printError(
-                `Cannot install build dependencies: unsupported package manager '${packageManager}'`,
-            );
+            printError(`Cannot install valgrind: No package manager detected for this platform`);
 
             return false;
         }
@@ -368,11 +363,11 @@ export async function installValgrindWithPackageManager(version: Version): Promi
                 if (!packageVersion) {
                     printError(`Unable to retrieve version information with ${packageManager}.`);
                     return false;
-                } else if (latestVersion !== packageVersion) {
+                } else if (!latestVersion.equals(packageVersion)) {
                     printError(`The package version doesn't match the requested version`);
                     return false;
                 } else {
-                    // pass through to install with package manger
+                    // pass through to install with package manager
                 }
             } catch (error) {
                 printError(
