@@ -149,6 +149,28 @@ describe("logInstalledVersion", () => {
     });
 });
 
+describe("normalizePath", () => {
+    it("when path starts with ./ then strips the prefix", () => {
+        expect(utils.normalizePath("./foo/bar")).toBe("foo/bar");
+    });
+
+    it("when path has no ./ prefix then returns unchanged", () => {
+        expect(utils.normalizePath("foo/bar")).toBe("foo/bar");
+    });
+
+    it("when path has leading/trailing whitespace then trims before stripping ./", () => {
+        expect(utils.normalizePath("  ./foo  ")).toBe("foo");
+    });
+
+    it("when path is just ./ then returns just .", () => {
+        expect(utils.normalizePath("./")).toBe(".");
+    });
+
+    it("when ./ appears in the middle then does not strip it", () => {
+        expect(utils.normalizePath("foo/./bar")).toBe("foo/./bar");
+    });
+});
+
 describe("printError", () => {
     it("delegates to core.error", () => {
         utils.printError("some error");
@@ -167,6 +189,40 @@ describe("printWarning", () => {
     it("delegates to core.warning", () => {
         utils.printWarning("some warning");
         expect(core.warning).toHaveBeenCalledWith("some warning");
+    });
+});
+
+describe("splitOnce", () => {
+    it("when separator is found then splits at first occurrence", () => {
+        expect(utils.splitOnce("a:b", ":")).toEqual(["a", "b"]);
+    });
+
+    it("when separator is not found then returns [str, '']", () => {
+        expect(utils.splitOnce("abc", ":")).toEqual(["abc", ""]);
+    });
+
+    it("when separator appears multiple times then splits at first only", () => {
+        expect(utils.splitOnce("a-b-c", "-")).toEqual(["a", "b-c"]);
+    });
+
+    it("when separator is at the start then returns ['', rest]", () => {
+        expect(utils.splitOnce("::b", "::")).toEqual(["", "b"]);
+    });
+
+    it("when separator is at the end then returns [before, '']", () => {
+        expect(utils.splitOnce("a::", "::")).toEqual(["a", ""]);
+    });
+
+    it("when string is empty then returns ['', '']", () => {
+        expect(utils.splitOnce("", "::")).toEqual(["", ""]);
+    });
+
+    it("when separator is multi-character then works correctly", () => {
+        expect(utils.splitOnce("a==b==c", "==")).toEqual(["a", "b==c"]);
+    });
+
+    it("when separator is empty then returns ['', 'str']", () => {
+        expect(utils.splitOnce("a==b==c", "")).toEqual(["", "a==b==c"]);
     });
 });
 

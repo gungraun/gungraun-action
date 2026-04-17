@@ -436,8 +436,8 @@ export async function installValgrindFromSource(
             if (installBuildDeps) {
                 const depsResult = await installValgrindBuildDeps();
                 if (!depsResult) {
-                    printError("Failed to install build dependencies, continuing anyway");
-                    // TODO: abort?
+                    printError("Failed to install build dependencies");
+                    return false;
                 }
             }
 
