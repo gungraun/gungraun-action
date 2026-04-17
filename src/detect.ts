@@ -79,7 +79,7 @@ export async function detectPlatform(): Promise<PlatformInfo> {
         throw new Error("Cannot detect platform: ID missing from /etc/os-release");
     }
 
-    const id = idMatch![1].trim(); // Safe: printErr exits if idMatch is null
+    const id = idMatch[1].trim();
     const versionId = versionMatch ? versionMatch[1].trim() : null;
     const idLikeMatch = content.match(/^ID_LIKE="?(.+?)"?$/m);
     const idLike = idLikeMatch ? idLikeMatch[1].trim() : null;
@@ -147,7 +147,7 @@ export async function detectTarget(): Promise<string> {
     if (!match) {
         throw new Error("Could not detect target from rustc -vV");
     }
-    return match![1].trim(); // Safe: printErr exits if match is null
+    return match[1].trim(); // Safe: printErr exits if match is null
 }
 
 /** Resolves the package manager for a distro using its ID and ID_LIKE fields. */

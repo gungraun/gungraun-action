@@ -178,8 +178,8 @@ export class FetchLatestPackageVersion implements PackageManagerVisitor<
         const output = await execSudoWithOutput("apk", "policy", this.pkg);
         // sample policy:
         // "valgrind policy:
-        //   3.25.1-r2:
-        //     https://dl-cdn.alpinelinux.org/alpine/v3.23/main"
+        //    3.25.1-r2:
+        //      https://dl-cdn.alpinelinux.org/alpine/v3.23/main"
         const regex = new RegExp(String.raw`${this.pkg}\s*policy:\s*([^\s:]+):`, "gm");
         const matches = [...output.matchAll(regex)];
 

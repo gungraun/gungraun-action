@@ -276,6 +276,10 @@ describe("parseValgrindVersion", () => {
 
     it("when valid specific version then returns it", async () => {
         (core.getInput as jest.Mock).mockReturnValue("3.22.0");
+        (fetchSortedValgrindVersions as jest.Mock).mockResolvedValue([
+            new ResolvedVersion(3, 16, 0),
+            new ResolvedVersion(3, 22, 0),
+        ]);
 
         const result = await parseValgrindVersion();
         expect(result).toEqual(new Version(3, 22, 0));
