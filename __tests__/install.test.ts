@@ -631,7 +631,8 @@ describe('installValgrindFromBuilder', () => {
         );
 
         expect(exec.exec).toHaveBeenCalledWith('sudo', [
-            'mv',
+            'cp',
+            '-a',
             '/tmp/extract/bin',
             '/tmp/extract/lib',
             '/'

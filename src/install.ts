@@ -331,7 +331,12 @@ export async function installValgrindFromBuilder(
             }
 
             const entries = await fs.promises.readdir(extractDir);
-            await exec.exec('sudo', ['mv', ...entries.map((e) => path.join(extractDir, e)), '/']);
+            await exec.exec('sudo', [
+                'cp',
+                '-a',
+                ...entries.map((e) => path.join(extractDir, e)),
+                '/'
+            ]);
 
             await logInstalledVersion('valgrind', 'valgrind');
         } catch (error) {

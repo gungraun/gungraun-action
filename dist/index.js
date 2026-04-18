@@ -33334,7 +33334,12 @@ async function installValgrindFromBuilder(version, githubToken, valgrindUrl, val
                 extractDir = await (0, download_1.downloadAndExtractValgrind)(version_1.Version.latest(), name, githubToken);
             }
             const entries = await fs.promises.readdir(extractDir);
-            await exec.exec('sudo', ['mv', ...entries.map((e) => path.join(extractDir, e)), '/']);
+            await exec.exec('sudo', [
+                'cp',
+                '-a',
+                ...entries.map((e) => path.join(extractDir, e)),
+                '/'
+            ]);
             await (0, utils_1.logInstalledVersion)('valgrind', 'valgrind');
         }
         catch (error) {
