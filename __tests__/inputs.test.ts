@@ -119,13 +119,18 @@ describe('parseRunnerTarget', () => {
     it('when input provided then returns it', async () => {
         (core.getInput as jest.Mock).mockReturnValue('x86_64-unknown-linux-gnu');
         (detectTarget as jest.Mock).mockResolvedValue('aarch64-unknown-linux-gnu');
-        await expect(parseRunnerTarget()).resolves.toBe('x86_64-unknown-linux-gnu');
+        await expect(parseRunnerTarget(false)).resolves.toBe('x86_64-unknown-linux-gnu');
     });
 
     it('when input empty then falls back to detectTarget', async () => {
         (core.getInput as jest.Mock).mockReturnValue('');
         (detectTarget as jest.Mock).mockResolvedValue('aarch64-unknown-linux-gnu');
-        await expect(parseRunnerTarget()).resolves.toBe('aarch64-unknown-linux-gnu');
+        await expect(parseRunnerTarget(false)).resolves.toBe('aarch64-unknown-linux-gnu');
+    });
+
+    it('when runner strategy is none then returns empty string', async () => {
+        const result = await parseRunnerTarget(true);
+        expect(result).toBe('');
     });
 });
 
@@ -153,7 +158,7 @@ describe('parseRunnerVersion', () => {
         (core.getInput as jest.Mock).mockReturnValue('auto');
         (detectProjectVersion as jest.Mock).mockResolvedValue(new ResolvedVersion(1, 2, 3));
 
-        const result = await parseRunnerVersion('some-token');
+        const result = await parseRunnerVersion(false, 'some-token');
 
         expect(result).toEqual(new Version(1, 2, 3));
         expect(detectProjectVersion).toHaveBeenCalled();
@@ -163,7 +168,7 @@ describe('parseRunnerVersion', () => {
         (core.getInput as jest.Mock).mockReturnValue('AUTO');
         (detectProjectVersion as jest.Mock).mockResolvedValue(new ResolvedVersion(1, 2, 3));
 
-        const result = await parseRunnerVersion('some-token');
+        const result = await parseRunnerVersion(false, 'some-token');
 
         expect(result).toEqual(new Version(1, 2, 3));
     });
@@ -172,7 +177,7 @@ describe('parseRunnerVersion', () => {
         (core.getInput as jest.Mock).mockReturnValue('auto');
         (detectProjectVersion as jest.Mock).mockRejectedValue(new Error('no version found'));
 
-        await expect(parseRunnerVersion('token')).rejects.toThrow(
+        await expect(parseRunnerVersion(false, 'token')).rejects.toThrow(
             'Unable to detect gungraun-runner version:'
         );
     });
@@ -181,7 +186,7 @@ describe('parseRunnerVersion', () => {
         (core.getInput as jest.Mock).mockReturnValue('latest');
         (fetchRunnerVersions as jest.Mock).mockResolvedValue([]);
 
-        const result = await parseRunnerVersion('some-token');
+        const result = await parseRunnerVersion(false, 'some-token');
         expect(result).toEqual(Version.latest());
     });
 
@@ -192,7 +197,7 @@ describe('parseRunnerVersion', () => {
             new ResolvedVersion(2, 0, 0)
         ]);
 
-        const result = await parseRunnerVersion('some-token');
+        const result = await parseRunnerVersion(false, 'some-token');
         expect(result).toEqual(new Version(1, 2, 3));
     });
 
@@ -203,16 +208,21 @@ describe('parseRunnerVersion', () => {
             new ResolvedVersion(2, 0, 0)
         ]);
 
-        await expect(parseRunnerVersion('token')).rejects.toThrow('Invalid runner-version');
+        await expect(parseRunnerVersion(false, 'token')).rejects.toThrow('Invalid runner-version');
     });
 
     it('when fetching valid versions fails then throws', async () => {
         (core.getInput as jest.Mock).mockReturnValue('1.2.3');
         (fetchRunnerVersions as jest.Mock).mockRejectedValue(new Error('network error'));
 
-        await expect(parseRunnerVersion('token')).rejects.toThrow(
+        await expect(parseRunnerVersion(false, 'token')).rejects.toThrow(
             'Failed to fetch gungraun-runner versions:'
         );
+    });
+
+    it('when runner strategy is none then returns auto', async () => {
+        const result = await parseRunnerVersion(true, 'token');
+        expect(result).toEqual(Version.auto());
     });
 });
 

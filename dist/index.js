@@ -32718,7 +32718,7 @@ async function downloadAndExtractRelease(repo, version, assetName, githubToken) 
     const archivePath = await tc.downloadTool(archiveAsset.browserDownloadUrl);
     if (shaAsset) {
         const shaPath = await tc.downloadTool(shaAsset.browserDownloadUrl);
-        await (0, hash_1.verifySha)(256, archivePath, shaPath);
+        await (0, hash_1.verifySha)(256, archivePath, shaPath, assetName);
     }
     const extractDir = await tc.extractTar(archivePath);
     return extractDir;
@@ -32726,9 +32726,10 @@ async function downloadAndExtractRelease(repo, version, assetName, githubToken) 
 async function downloadAndExtractValgrindUrl(valgrindUrl, valgrindShaUrl) {
     const archivePath = await tc.downloadTool(valgrindUrl);
     const name = path_1.default.basename(archivePath);
+    const assetName = path_1.default.basename(new URL(valgrindUrl).pathname);
     if (valgrindShaUrl) {
         const shaPath = await tc.downloadTool(valgrindShaUrl);
-        await (0, hash_1.verifySha)('auto', archivePath, shaPath);
+        await (0, hash_1.verifySha)('auto', archivePath, shaPath, assetName);
     }
     const extractDir = await tc.extractTar(archivePath);
     return { extractDir, name };
@@ -32740,7 +32741,7 @@ async function downloadAndExtractValgrindSource(version) {
     const shaSumsUrl = `https://sourceware.org/pub/valgrind/sha512.sum`;
     const archivePath = await tc.downloadTool(tarballUrl);
     const shaAsset = await tc.downloadTool(shaSumsUrl);
-    await (0, hash_1.verifySha)(512, archivePath, shaAsset);
+    await (0, hash_1.verifySha)(512, archivePath, shaAsset, assetName);
     const extractDir = await tc.extractTar(archivePath, undefined, 'xj');
     return extractDir;
 }
@@ -32814,8 +32815,8 @@ function extractHash(filePath, expectedName) {
     })?.[0];
     return hash ?? null;
 }
-async function verifySha(variant, archivePath, shaFilePath) {
-    const expectedName = path.basename(archivePath);
+async function verifySha(variant, archivePath, shaFilePath, assetName) {
+    const expectedName = assetName ? assetName : path.basename(archivePath);
     const expectedHash = extractHash(shaFilePath, expectedName);
     if (!expectedHash) {
         throw new Error(`Could not find SHA-${variant} entry for '${expectedName}' in checksum file \
@@ -32923,8 +32924,9 @@ async function parseInputs() {
     const githubToken = await parseGithubToken();
     const installBuildDeps = await parseInstallBuildDeps();
     const runnerStrategies = await parseRunnerStrategies();
-    const runnerTarget = await parseRunnerTarget();
-    const runnerVersion = await parseRunnerVersion(githubToken);
+    const isRunnerStrategyNone = runnerStrategies.includes('none');
+    const runnerTarget = await parseRunnerTarget(isRunnerStrategyNone);
+    const runnerVersion = await parseRunnerVersion(isRunnerStrategyNone, githubToken);
     const valgrindVersion = await parseValgrindVersion();
     const valgrindStrategies = await parseValgrindStrategies();
     const valgrindUrl = await parseValgrindUrl();
@@ -32941,8 +32943,13 @@ async function parseInputs() {
         valgrindVersion
     };
 }
-async function parseRunnerTarget() {
-    return core.getInput('runner-target') || (await (0, detect_1.detectTarget)());
+async function parseRunnerTarget(isNoneStrategy) {
+    if (isNoneStrategy) {
+        return '';
+    }
+    else {
+        return core.getInput('runner-target') || (await (0, detect_1.detectTarget)());
+    }
 }
 async function parseRunnerStrategies() {
     try {
@@ -32952,7 +32959,10 @@ async function parseRunnerStrategies() {
         throw new Error(`Invalid runner-strategy: ${error.message}`);
     }
 }
-async function parseRunnerVersion(githubToken) {
+async function parseRunnerVersion(isNoneStrategy, githubToken) {
+    if (isNoneStrategy) {
+        return version_1.Version.auto();
+    }
     const runnerVersionInput = core.getInput('runner-version') || 'auto';
     let runnerVersion;
     if (runnerVersionInput.toLowerCase() === 'auto') {
@@ -33006,9 +33016,11 @@ async function parseValgrindStrategies() {
         throw new Error(`Invalid valgrind-strategy: ${error.message}`);
     }
 }
+// FIX: use URL and return it
 async function parseValgrindUrl() {
     return core.getInput('valgrind-url') || '';
 }
+// FIX: use URL and return it
 async function parseValgrindShaUrl() {
     return core.getInput('valgrind-sha-url') || '';
 }
@@ -33314,12 +33326,20 @@ async function installValgrindFromBuilder(version, githubToken, valgrindUrl, val
 (${arch}-${platform})`);
                     return false;
                 }
-                const { version: resolvedVersion, name } = result;
+                const { name } = result;
                 (0, utils_1.printInfo)(`Downloading valgrind builder archive '${name}'`);
-                extractDir = await (0, download_1.downloadAndExtractValgrind)(resolvedVersion, name, githubToken);
+                // This is not the valgrind version. We always use the latest version of the builder
+                // release and extract the archive attached to the latest release with the given
+                // `name`.
+                extractDir = await (0, download_1.downloadAndExtractValgrind)(version_1.Version.latest(), name, githubToken);
             }
             const entries = await fs.promises.readdir(extractDir);
-            await exec.exec('sudo', ['mv', ...entries.map((e) => path.join(extractDir, e)), '/']);
+            await exec.exec('sudo', [
+                'cp',
+                '-a',
+                ...entries.map((e) => path.join(extractDir, e)),
+                '/'
+            ]);
             await (0, utils_1.logInstalledVersion)('valgrind', 'valgrind');
         }
         catch (error) {

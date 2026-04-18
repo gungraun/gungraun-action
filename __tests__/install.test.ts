@@ -566,7 +566,7 @@ describe('installValgrindFromBuilder', () => {
             'token'
         );
         expect(downloadAndExtractValgrind).toHaveBeenCalledWith(
-            resolvedVersion,
+            Version.latest(),
             'valgrind-3.20.0-x86_64-ubuntu-22.04.tar.gz',
             'token'
         );
@@ -631,7 +631,8 @@ describe('installValgrindFromBuilder', () => {
         );
 
         expect(exec.exec).toHaveBeenCalledWith('sudo', [
-            'mv',
+            'cp',
+            '-a',
             '/tmp/extract/bin',
             '/tmp/extract/lib',
             '/'
