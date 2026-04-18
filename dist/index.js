@@ -32924,8 +32924,9 @@ async function parseInputs() {
     const githubToken = await parseGithubToken();
     const installBuildDeps = await parseInstallBuildDeps();
     const runnerStrategies = await parseRunnerStrategies();
-    const runnerTarget = await parseRunnerTarget();
-    const runnerVersion = await parseRunnerVersion(githubToken);
+    const isRunnerStrategyNone = runnerStrategies.includes('none');
+    const runnerTarget = await parseRunnerTarget(isRunnerStrategyNone);
+    const runnerVersion = await parseRunnerVersion(isRunnerStrategyNone, githubToken);
     const valgrindVersion = await parseValgrindVersion();
     const valgrindStrategies = await parseValgrindStrategies();
     const valgrindUrl = await parseValgrindUrl();
@@ -32942,8 +32943,13 @@ async function parseInputs() {
         valgrindVersion
     };
 }
-async function parseRunnerTarget() {
-    return core.getInput('runner-target') || (await (0, detect_1.detectTarget)());
+async function parseRunnerTarget(isNoneStrategy) {
+    if (isNoneStrategy) {
+        return '';
+    }
+    else {
+        return core.getInput('runner-target') || (await (0, detect_1.detectTarget)());
+    }
 }
 async function parseRunnerStrategies() {
     try {
@@ -32953,7 +32959,10 @@ async function parseRunnerStrategies() {
         throw new Error(`Invalid runner-strategy: ${error.message}`);
     }
 }
-async function parseRunnerVersion(githubToken) {
+async function parseRunnerVersion(isNoneStrategy, githubToken) {
+    if (isNoneStrategy) {
+        return version_1.Version.auto();
+    }
     const runnerVersionInput = core.getInput('runner-version') || 'auto';
     let runnerVersion;
     if (runnerVersionInput.toLowerCase() === 'auto') {

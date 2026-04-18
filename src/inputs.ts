@@ -41,8 +41,11 @@ export async function parseInputs(): Promise<Inputs> {
     const githubToken = await parseGithubToken();
     const installBuildDeps = await parseInstallBuildDeps();
     const runnerStrategies = await parseRunnerStrategies();
-    const runnerTarget = await parseRunnerTarget();
-    const runnerVersion = await parseRunnerVersion(githubToken);
+
+    const isRunnerStrategyNone = runnerStrategies.includes('none');
+
+    const runnerTarget = await parseRunnerTarget(isRunnerStrategyNone);
+    const runnerVersion = await parseRunnerVersion(isRunnerStrategyNone, githubToken);
     const valgrindVersion = await parseValgrindVersion();
     const valgrindStrategies = await parseValgrindStrategies();
     const valgrindUrl = await parseValgrindUrl();
@@ -61,8 +64,12 @@ export async function parseInputs(): Promise<Inputs> {
     };
 }
 
-export async function parseRunnerTarget(): Promise<string> {
-    return core.getInput('runner-target') || (await detectTarget());
+export async function parseRunnerTarget(isNoneStrategy: boolean): Promise<string> {
+    if (isNoneStrategy) {
+        return '';
+    } else {
+        return core.getInput('runner-target') || (await detectTarget());
+    }
 }
 
 export async function parseRunnerStrategies(): Promise<RunnerStrategy[]> {
@@ -77,7 +84,14 @@ export async function parseRunnerStrategies(): Promise<RunnerStrategy[]> {
     }
 }
 
-export async function parseRunnerVersion(githubToken: string): Promise<Version> {
+export async function parseRunnerVersion(
+    isNoneStrategy: boolean,
+    githubToken: string
+): Promise<Version> {
+    if (isNoneStrategy) {
+        return Version.auto();
+    }
+
     const runnerVersionInput = core.getInput('runner-version') || 'auto';
     let runnerVersion: Version;
 
