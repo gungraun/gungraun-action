@@ -3,6 +3,7 @@ AGENTS
 armv7
 badsingleword
 binstall
+cooldown
 debuginfo
 debuginfod
 endgroup
