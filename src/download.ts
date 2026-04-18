@@ -1,7 +1,7 @@
 import * as tc from '@actions/tool-cache';
 import { fetchReleaseAssetData } from './resolve';
 import { GUNGRAUN_REPO, VALGRIND_BUILDER_REPO } from './utils';
-import { ResolvedVersion } from './version';
+import { ResolvedVersion, Version } from './version';
 import path from 'path';
 import { verifySha } from './hash';
 
@@ -17,7 +17,7 @@ export async function downloadAndExtractRunner(
 
 export async function downloadAndExtractRelease(
     repo: string,
-    version: ResolvedVersion,
+    version: Version,
     assetName: string,
     githubToken: string
 ): Promise<string> {
@@ -75,7 +75,7 @@ export async function downloadAndExtractValgrindSource(version: ResolvedVersion)
 
 /** Downloads and extracts the valgrind release archive for a given tag and asset name. */
 export async function downloadAndExtractValgrind(
-    version: ResolvedVersion,
+    version: Version,
     assetName: string,
     githubToken: string
 ): Promise<string> {

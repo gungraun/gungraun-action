@@ -321,10 +321,13 @@ export async function installValgrindFromBuilder(
                     return false;
                 }
 
-                const { version: resolvedVersion, name } = result;
+                const { name } = result;
 
                 printInfo(`Downloading valgrind builder archive '${name}'`);
-                extractDir = await downloadAndExtractValgrind(resolvedVersion, name, githubToken);
+                // This is not the valgrind version. We always use the latest version of the builder
+                // release and extract the archive attached to the latest release with the given
+                // `name`.
+                extractDir = await downloadAndExtractValgrind(Version.latest(), name, githubToken);
             }
 
             const entries = await fs.promises.readdir(extractDir);
