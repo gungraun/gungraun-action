@@ -32718,7 +32718,7 @@ async function downloadAndExtractRelease(repo, version, assetName, githubToken) 
     const archivePath = await tc.downloadTool(archiveAsset.browserDownloadUrl);
     if (shaAsset) {
         const shaPath = await tc.downloadTool(shaAsset.browserDownloadUrl);
-        await (0, hash_1.verifySha)(256, archivePath, shaPath);
+        await (0, hash_1.verifySha)(256, archivePath, shaPath, assetName);
     }
     const extractDir = await tc.extractTar(archivePath);
     return extractDir;
@@ -32726,9 +32726,10 @@ async function downloadAndExtractRelease(repo, version, assetName, githubToken) 
 async function downloadAndExtractValgrindUrl(valgrindUrl, valgrindShaUrl) {
     const archivePath = await tc.downloadTool(valgrindUrl);
     const name = path_1.default.basename(archivePath);
+    const assetName = path_1.default.basename(new URL(valgrindUrl).pathname);
     if (valgrindShaUrl) {
         const shaPath = await tc.downloadTool(valgrindShaUrl);
-        await (0, hash_1.verifySha)('auto', archivePath, shaPath);
+        await (0, hash_1.verifySha)('auto', archivePath, shaPath, assetName);
     }
     const extractDir = await tc.extractTar(archivePath);
     return { extractDir, name };
@@ -32740,7 +32741,7 @@ async function downloadAndExtractValgrindSource(version) {
     const shaSumsUrl = `https://sourceware.org/pub/valgrind/sha512.sum`;
     const archivePath = await tc.downloadTool(tarballUrl);
     const shaAsset = await tc.downloadTool(shaSumsUrl);
-    await (0, hash_1.verifySha)(512, archivePath, shaAsset);
+    await (0, hash_1.verifySha)(512, archivePath, shaAsset, assetName);
     const extractDir = await tc.extractTar(archivePath, undefined, 'xj');
     return extractDir;
 }
@@ -32814,8 +32815,8 @@ function extractHash(filePath, expectedName) {
     })?.[0];
     return hash ?? null;
 }
-async function verifySha(variant, archivePath, shaFilePath) {
-    const expectedName = path.basename(archivePath);
+async function verifySha(variant, archivePath, shaFilePath, assetName) {
+    const expectedName = assetName ? assetName : path.basename(archivePath);
     const expectedHash = extractHash(shaFilePath, expectedName);
     if (!expectedHash) {
         throw new Error(`Could not find SHA-${variant} entry for '${expectedName}' in checksum file \
@@ -33006,9 +33007,11 @@ async function parseValgrindStrategies() {
         throw new Error(`Invalid valgrind-strategy: ${error.message}`);
     }
 }
+// FIX: use URL and return it
 async function parseValgrindUrl() {
     return core.getInput('valgrind-url') || '';
 }
+// FIX: use URL and return it
 async function parseValgrindShaUrl() {
     return core.getInput('valgrind-sha-url') || '';
 }

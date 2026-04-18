@@ -1,8 +1,9 @@
 name: Test
 
+# TODO: Run daily
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
     branches: [main]
   workflow_dispatch:

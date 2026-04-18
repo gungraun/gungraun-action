@@ -56,7 +56,12 @@ describe('downloadAndExtractRelease', () => {
         expect(fetchReleaseAssetData).toHaveBeenCalledWith('owner/repo', version, 'token');
         expect(tc.downloadTool).toHaveBeenCalledWith('https://example.com/app.tar.gz');
         expect(tc.downloadTool).toHaveBeenCalledWith('https://example.com/app.tar.gz.sha256');
-        expect(verifySha).toHaveBeenCalledWith(256, '/tmp/app.tar.gz', '/tmp/app.tar.gz.sha256');
+        expect(verifySha).toHaveBeenCalledWith(
+            256,
+            '/tmp/app.tar.gz',
+            '/tmp/app.tar.gz.sha256',
+            'app.tar.gz'
+        );
         expect(tc.extractTar).toHaveBeenCalledWith('/tmp/app.tar.gz');
     });
 
@@ -165,7 +170,8 @@ describe('downloadAndExtractValgrindUrl', () => {
         expect(verifySha).toHaveBeenCalledWith(
             'auto',
             '/tmp/valgrind.tar.gz',
-            '/tmp/valgrind.tar.gz.sha256'
+            '/tmp/valgrind.tar.gz.sha256',
+            'valgrind.tar.gz'
         );
         expect(tc.extractTar).toHaveBeenCalledWith('/tmp/valgrind.tar.gz');
     });
@@ -212,7 +218,8 @@ describe('downloadAndExtractValgrindSource', () => {
         expect(verifySha).toHaveBeenCalledWith(
             512,
             '/tmp/valgrind-3.20.0.tar.bz2',
-            '/tmp/sha512.sum'
+            '/tmp/sha512.sum',
+            'valgrind-3.20.0.tar.bz2'
         );
         expect(tc.extractTar).toHaveBeenCalledWith('/tmp/valgrind-3.20.0.tar.bz2', undefined, 'xj');
     });

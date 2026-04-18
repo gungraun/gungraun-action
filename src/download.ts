@@ -34,7 +34,7 @@ export async function downloadAndExtractRelease(
 
     if (shaAsset) {
         const shaPath = await tc.downloadTool(shaAsset.browserDownloadUrl);
-        await verifySha(256, archivePath, shaPath);
+        await verifySha(256, archivePath, shaPath, assetName);
     }
 
     const extractDir = await tc.extractTar(archivePath);
@@ -47,10 +47,11 @@ export async function downloadAndExtractValgrindUrl(
 ): Promise<{ extractDir: string; name: string }> {
     const archivePath = await tc.downloadTool(valgrindUrl);
     const name = path.basename(archivePath);
+    const assetName = path.basename(new URL(valgrindUrl).pathname);
 
     if (valgrindShaUrl) {
         const shaPath = await tc.downloadTool(valgrindShaUrl);
-        await verifySha('auto', archivePath, shaPath);
+        await verifySha('auto', archivePath, shaPath, assetName);
     }
 
     const extractDir = await tc.extractTar(archivePath);
@@ -66,7 +67,7 @@ export async function downloadAndExtractValgrindSource(version: ResolvedVersion)
     const archivePath = await tc.downloadTool(tarballUrl);
     const shaAsset = await tc.downloadTool(shaSumsUrl);
 
-    await verifySha(512, archivePath, shaAsset);
+    await verifySha(512, archivePath, shaAsset, assetName);
 
     const extractDir = await tc.extractTar(archivePath, undefined, 'xj');
     return extractDir;

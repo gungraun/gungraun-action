@@ -26,9 +26,10 @@ export function extractHash(filePath: string, expectedName: string): string | nu
 export async function verifySha(
     variant: 256 | 512 | 'auto',
     archivePath: string,
-    shaFilePath: string
+    shaFilePath: string,
+    assetName?: string
 ): Promise<void> {
-    const expectedName = path.basename(archivePath);
+    const expectedName = assetName ? assetName : path.basename(archivePath);
     const expectedHash = extractHash(shaFilePath, expectedName);
     if (!expectedHash) {
         throw new Error(

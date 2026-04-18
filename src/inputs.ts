@@ -153,10 +153,12 @@ export async function parseValgrindStrategies(): Promise<ValgrindStrategy[]> {
     }
 }
 
+// FIX: use URL and return it
 export async function parseValgrindUrl(): Promise<string> {
     return core.getInput('valgrind-url') || '';
 }
 
+// FIX: use URL and return it
 export async function parseValgrindShaUrl(): Promise<string> {
     return core.getInput('valgrind-sha-url') || '';
 }
