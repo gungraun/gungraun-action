@@ -150,12 +150,10 @@ export async function installRunnerFromRelease(
             await io.mv(runnerPath, path.join(installDir, 'gungraun-runner'));
 
             if (needsExport) {
-                // FIX: move to utils and printInfo. but would be best outside of the withGroup
                 core.addPath(installDir);
 
                 process.env.PATH = `${installDir}${path.delimiter}${process.env.PATH}`;
 
-                // FIX: move to utils and printInfo. but would be best outside of the withGroup
                 core.exportVariable('GUNGRAUN_RUNNER', path.join(installDir, 'gungraun-runner'));
             }
 
@@ -408,26 +406,24 @@ export async function installValgrindWithPackageManager(version: Version): Promi
 
 /** Installs build dependencies required to compile valgrind from source. */
 export async function installValgrindBuildDeps(): Promise<boolean> {
-    return withGroup('Installing valgrind build dependencies', async () => {
-        const { packageManager } = await detectPlatform();
+    const { packageManager } = await detectPlatform();
 
-        if (!packageManager) {
-            printError(`Cannot install build dependencies: unsupported package manager`);
-            return false;
-        }
+    if (!packageManager) {
+        printError(`Cannot install build dependencies: unsupported package manager`);
+        return false;
+    }
 
-        try {
-            const packages = packageManager.getValgrindBuildDeps();
-            await packageManager.accept(new PackagesInstaller(...packages));
-            printInfo(`Installed build dependencies: ${packages.join(', ')}`);
+    try {
+        const packages = packageManager.getValgrindBuildDeps();
+        await packageManager.accept(new PackagesInstaller(...packages));
+        printInfo(`Installed build dependencies: ${packages.join(', ')}`);
 
-            return true;
-        } catch (error) {
-            printError(`Failed to install build dependencies: ${(error as Error).message}`);
+        return true;
+    } catch (error) {
+        printError(`Failed to install build dependencies: ${(error as Error).message}`);
 
-            return false;
-        }
-    });
+        return false;
+    }
 }
 
 /** Installs valgrind from the source tarball. */
