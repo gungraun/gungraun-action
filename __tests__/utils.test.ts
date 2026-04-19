@@ -298,23 +298,7 @@ describe('logInstalledVersion', () => {
         expect(core.info).toHaveBeenCalledWith('label installed: binary 1.2.3');
     });
 
-    it('uses fallback when stdout is empty', async () => {
-        (exec.getExecOutput as jest.Mock).mockResolvedValue({ stdout: '' });
-
-        await utils.logInstalledVersion('binary', 'label', 'fallback');
-
-        expect(core.info).toHaveBeenCalledWith('label installed: fallback');
-    });
-
-    it('uses fallback when stdout contains only whitespace', async () => {
-        (exec.getExecOutput as jest.Mock).mockResolvedValue({ stdout: '   \n' });
-
-        await utils.logInstalledVersion('binary', 'label', 'fallback');
-
-        expect(core.info).toHaveBeenCalledWith('label installed: fallback');
-    });
-
-    it("defaults to 'version unknown' when stdout and fallback are empty", async () => {
+    it("defaults to 'version unknown' when stdout is empty", async () => {
         (exec.getExecOutput as jest.Mock).mockResolvedValue({ stdout: '' });
 
         await utils.logInstalledVersion('binary', 'label');

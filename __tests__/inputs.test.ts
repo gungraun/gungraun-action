@@ -257,7 +257,7 @@ describe('parseValgrindUrl', () => {
 
     it('when input empty then throws', async () => {
         (core.getInput as jest.Mock).mockReturnValue('');
-        await expect(parseValgrindUrl()).rejects.toThrow('Invalid valgrind-url:');
+        await expect(parseValgrindUrl()).resolves.toBeUndefined();
     });
 
     it('when invalid url then throws', async () => {
@@ -276,7 +276,7 @@ describe('parseValgrindShaUrl', () => {
 
     it('when input empty then throws', async () => {
         (core.getInput as jest.Mock).mockReturnValue('');
-        await expect(parseValgrindShaUrl()).rejects.toThrow('Invalid valgrind-sha-url:');
+        await expect(parseValgrindShaUrl()).resolves.toBeUndefined();
     });
 
     it('when invalid url then throws', async () => {

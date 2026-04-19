@@ -194,6 +194,37 @@ describe('installRunner', () => {
         expect(resolveRunnerVersion).not.toHaveBeenCalled();
     });
 
+    it('when binstall succeeds then logs installed version', async () => {
+        (io.which as jest.Mock).mockResolvedValueOnce('/usr/bin/cargo-binstall');
+        (exec.exec as jest.Mock).mockResolvedValue(0);
+
+        await installRunner(Version.latest(), ['binstall'], 'token', 'target');
+
+        expect(logInstalledVersion).toHaveBeenCalledWith('gungraun-runner', 'gungraun-runner');
+    });
+
+    it('when release succeeds then logs installed version', async () => {
+        jest.replaceProperty(process, 'env', { HOME: '/home/test' });
+        (resolveRunnerVersion as jest.Mock).mockResolvedValue(new ResolvedVersion(1, 2, 3));
+        (downloadAndExtractRunner as jest.Mock).mockResolvedValue('/tmp/extract');
+        (findBinary as jest.Mock).mockResolvedValue('/tmp/extract/gungraun-runner');
+        (fs.existsSync as jest.Mock).mockReturnValue(true);
+        (exec.exec as jest.Mock).mockResolvedValue(0);
+        (io.mv as jest.Mock).mockResolvedValue(undefined);
+
+        await installRunner(new Version(1, 2, 3), ['release'], 'token', 'x86_64-unknown-linux-gnu');
+
+        expect(logInstalledVersion).toHaveBeenCalledWith('gungraun-runner', 'gungraun-runner');
+    });
+
+    it('when source succeeds then logs installed version', async () => {
+        (exec.exec as jest.Mock).mockResolvedValue(0);
+
+        await installRunner(new Version(1, 2, 3), ['source'], 'token', 'x86_64-unknown-linux-gnu');
+
+        expect(logInstalledVersion).toHaveBeenCalledWith('gungraun-runner', 'gungraun-runner');
+    });
+
     it('when all strategies fail then throws', async () => {
         jest.replaceProperty(process, 'env', {});
         (findBinary as jest.Mock).mockResolvedValue(null);
@@ -234,11 +265,6 @@ describe('installRunnerFromRelease', () => {
         expect(core.exportVariable).toHaveBeenCalledWith(
             'GUNGRAUN_RUNNER',
             '/home/test/.cargo/bin/gungraun-runner'
-        );
-        expect(logInstalledVersion).toHaveBeenCalledWith(
-            '/home/test/.cargo/bin/gungraun-runner',
-            'gungraun-runner',
-            'gungraun-runner 1.2.3'
         );
     });
 
@@ -443,32 +469,26 @@ describe('installRunnerWithBinstall', () => {
         );
     });
 
-    it('when binary found on PATH then logs version', async () => {
-        (io.which as jest.Mock)
-            .mockResolvedValueOnce('/usr/bin/cargo-binstall')
-            .mockResolvedValueOnce('/usr/bin/gungraun-runner');
+    it('when binstall succeeds then logs version', async () => {
+        (io.which as jest.Mock).mockResolvedValueOnce('/usr/bin/cargo-binstall');
         (exec.exec as jest.Mock).mockResolvedValue(0);
 
         await installRunnerWithBinstall(Version.latest());
 
-        expect(logInstalledVersion).toHaveBeenCalledWith(
-            'gungraun-runner',
-            'gungraun-runner',
-            'gungraun-runner latest'
-        );
+        expect(logInstalledVersion).not.toHaveBeenCalled();
     });
 });
 
 describe('installValgrind', () => {
     it('when strategy is none then skips installation', async () => {
-        await installValgrind(Version.latest(), ['none'], false, 'token', '', '');
+        await installValgrind(Version.latest(), ['none'], false, 'token');
 
         expect(printInfo).toHaveBeenCalledWith('Skipping valgrind installation');
     });
 
     it('when strategy is invalid then throws', async () => {
         await expect(
-            installValgrind(Version.latest(), ['invalid' as never], false, 'token', '', '')
+            installValgrind(Version.latest(), ['invalid' as never], false, 'token')
         ).rejects.toThrow("Invalid strategy 'invalid'");
     });
 
@@ -494,8 +514,7 @@ describe('installValgrind', () => {
             ['builder'],
             false,
             'token',
-            'https://example.com/vg.tar.gz',
-            ''
+            new URL('https://some.tar.gz')
         );
 
         expect(printInfo).not.toHaveBeenCalledWith('Skipping valgrind installation');
@@ -511,8 +530,67 @@ describe('installValgrind', () => {
         });
 
         await expect(
-            installValgrind(new Version(3, 20, 0), ['system'], false, 'token', '', '')
+            installValgrind(new Version(3, 20, 0), ['system'], false, 'token')
         ).rejects.toThrow('All valgrind installation strategies failed');
+    });
+
+    it('when builder succeeds then logs installed version', async () => {
+        const mockPm = createMockPackageManager();
+        mockPm.accept.mockResolvedValueOnce(undefined);
+        (detectPlatform as jest.Mock).mockResolvedValue({
+            id: 'ubuntu',
+            versionId: '22.04',
+            platform: 'ubuntu-22.04',
+            packageManager: mockPm
+        });
+        (downloadAndExtractValgrindUrl as jest.Mock).mockResolvedValue({
+            extractDir: '/tmp/extract',
+            name: 'valgrind.tar.gz'
+        });
+        (fs.promises.readdir as jest.Mock).mockResolvedValue(['bin', 'lib']);
+        (exec.exec as jest.Mock).mockResolvedValue(0);
+
+        await installValgrind(
+            Version.auto(),
+            ['builder'],
+            false,
+            'token',
+            new URL('https://example.com/vg.tar.gz')
+        );
+
+        expect(logInstalledVersion).toHaveBeenCalledWith('valgrind', 'valgrind');
+    });
+
+    it('when system succeeds then logs installed version', async () => {
+        const mockPm = createMockPackageManager();
+        (detectPlatform as jest.Mock).mockResolvedValue({
+            id: 'ubuntu',
+            versionId: '22.04',
+            platform: 'ubuntu-22.04',
+            packageManager: mockPm
+        });
+
+        await installValgrind(Version.auto(), ['system'], false, 'token');
+
+        expect(logInstalledVersion).toHaveBeenCalledWith('valgrind', 'valgrind');
+    });
+
+    it('when source succeeds then logs installed version', async () => {
+        const mockPm = createMockPackageManager();
+        (resolveValgrindVersion as jest.Mock).mockResolvedValue(new ResolvedVersion(3, 20, 0));
+        (downloadAndExtractValgrindSource as jest.Mock).mockResolvedValue('/tmp/extract');
+        (exec.exec as jest.Mock).mockResolvedValue(0);
+        (os.cpus as jest.Mock).mockReturnValue([1, 2, 3, 4]);
+        (detectPlatform as jest.Mock).mockResolvedValue({
+            id: 'ubuntu',
+            versionId: '22.04',
+            platform: 'ubuntu-22.04',
+            packageManager: mockPm
+        });
+
+        await installValgrind(new Version(3, 20, 0), ['source'], false, 'token');
+
+        expect(logInstalledVersion).toHaveBeenCalledWith('valgrind', 'valgrind');
     });
 });
 
@@ -534,14 +612,14 @@ describe('installValgrindFromBuilder', () => {
         const result = await installValgrindFromBuilder(
             Version.latest(),
             'token',
-            'https://example.com/vg.tar.gz',
-            'https://example.com/vg.sha256'
+            new URL('https://example.com/vg.tar.gz'),
+            new URL('https://example.com/vg.sha256')
         );
 
         expect(result).toBe(true);
         expect(downloadAndExtractValgrindUrl).toHaveBeenCalledWith(
-            'https://example.com/vg.tar.gz',
-            'https://example.com/vg.sha256'
+            new URL('https://example.com/vg.tar.gz'),
+            new URL('https://example.com/vg.sha256')
         );
         expect(printInfo).toHaveBeenCalledWith(
             "Downloading valgrind archive from url 'https://example.com/vg.tar.gz'"
@@ -566,7 +644,7 @@ describe('installValgrindFromBuilder', () => {
         (fs.promises.readdir as jest.Mock).mockResolvedValue(['bin', 'lib']);
         (exec.exec as jest.Mock).mockResolvedValue(0);
 
-        const result = await installValgrindFromBuilder(Version.latest(), 'token', '', '');
+        const result = await installValgrindFromBuilder(Version.latest(), 'token');
 
         expect(result).toBe(true);
         expect(resolveValgrindBuilderAssetName).toHaveBeenCalledWith(
@@ -593,7 +671,7 @@ describe('installValgrindFromBuilder', () => {
         (detectArch as jest.Mock).mockReturnValue('x86_64');
         (resolveValgrindBuilderAssetName as jest.Mock).mockResolvedValue(null);
 
-        const result = await installValgrindFromBuilder(new Version(3, 20, 0), 'token', '', '');
+        const result = await installValgrindFromBuilder(new Version(3, 20, 0), 'token');
 
         expect(result).toBe(false);
         expect(printError).toHaveBeenCalledWith(
@@ -609,8 +687,7 @@ describe('installValgrindFromBuilder', () => {
         const result = await installValgrindFromBuilder(
             Version.latest(),
             'token',
-            'https://example.com/vg.tar.gz',
-            ''
+            new URL('https://just.to.take/the/url/branch.tar.gz')
         );
 
         expect(result).toBe(false);
@@ -636,8 +713,7 @@ describe('installValgrindFromBuilder', () => {
         await installValgrindFromBuilder(
             Version.latest(),
             'token',
-            'https://example.com/vg.tar.gz',
-            ''
+            new URL('https://just.to.take/the/url/branch.tar.gz')
         );
 
         expect(exec.exec).toHaveBeenCalledWith(
@@ -902,7 +978,6 @@ describe('installValgrindFromSource', () => {
             cwd: sourceDir,
             silent: true
         });
-        expect(logInstalledVersion).toHaveBeenCalledWith('valgrind', 'valgrind', 'valgrind-3.20.0');
     });
 
     it('when alpine then sets special flags', async () => {

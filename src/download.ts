@@ -43,7 +43,7 @@ export async function downloadAndExtractRelease(
 
 export async function downloadAndExtractValgrindUrl(
     valgrindUrl: URL,
-    valgrindShaUrl: URL
+    valgrindShaUrl?: URL
 ): Promise<{ extractDir: string; name: string }> {
     const archivePath = await tc.downloadTool(valgrindUrl.toString());
     const name = path.basename(archivePath);

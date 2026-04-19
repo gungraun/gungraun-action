@@ -80,17 +80,26 @@ export async function installRunner(
         switch (strategy) {
             case 'binstall': {
                 const result = await installRunnerWithBinstall(version, target);
-                if (result) return;
+                if (result) {
+                    await logInstalledVersion('gungraun-runner', 'gungraun-runner');
+                    return;
+                }
                 break;
             }
             case 'release': {
                 const result = await installRunnerFromRelease(version, githubToken, target);
-                if (result) return;
+                if (result) {
+                    await logInstalledVersion('gungraun-runner', 'gungraun-runner');
+                    return;
+                }
                 break;
             }
             case 'source': {
                 const result = await installRunnerFromSource(version);
-                if (result) return;
+                if (result) {
+                    await logInstalledVersion('gungraun-runner', 'gungraun-runner');
+                    return;
+                }
                 break;
             }
             case 'none': {
@@ -141,15 +150,14 @@ export async function installRunnerFromRelease(
             await io.mv(runnerPath, path.join(installDir, 'gungraun-runner'));
 
             if (needsExport) {
+                // FIX: move to utils and printInfo. but would be best outside of the withGroup
                 core.addPath(installDir);
+
+                process.env.PATH = `${installDir}${path.delimiter}${process.env.PATH}`;
+
+                // FIX: move to utils and printInfo. but would be best outside of the withGroup
                 core.exportVariable('GUNGRAUN_RUNNER', path.join(installDir, 'gungraun-runner'));
             }
-
-            await logInstalledVersion(
-                path.join(installDir, 'gungraun-runner'),
-                'gungraun-runner',
-                `gungraun-runner ${resolvedVersion}`
-            );
 
             return true;
         } catch (error) {
@@ -175,12 +183,6 @@ export async function installRunnerFromSource(version: Version, target?: string)
             }
 
             await exec.exec(getCargoBin(), args);
-
-            await logInstalledVersion(
-                'gungraun-runner',
-                'gungraun-runner',
-                `gungraun-runner ${version}`
-            );
 
             return true;
         } catch (error) {
@@ -216,15 +218,6 @@ export async function installRunnerWithBinstall(
 
             await exec.exec(getCargoBin(), args);
 
-            const runnerPath = await io.which('gungraun-runner', false);
-            if (runnerPath) {
-                await logInstalledVersion(
-                    'gungraun-runner',
-                    'gungraun-runner',
-                    `gungraun-runner ${version}`
-                );
-            }
-
             return true;
         } catch (error) {
             printError(
@@ -242,8 +235,8 @@ export async function installValgrind(
     strategies: ValgrindStrategy[],
     installBuildDeps: boolean = false,
     githubToken: string,
-    valgrindUrl: URL,
-    valgrindShaUrl: URL,
+    valgrindUrl?: URL,
+    valgrindShaUrl?: URL,
     configureArgs: string[] = [],
     makeEnvs: Map<string, string> = new Map()
 ): Promise<void> {
@@ -256,12 +249,18 @@ export async function installValgrind(
                     valgrindUrl,
                     valgrindShaUrl
                 );
-                if (result) return;
+                if (result) {
+                    await logInstalledVersion('valgrind', 'valgrind');
+                    return;
+                }
                 break;
             }
             case 'system': {
                 const result = await installValgrindWithPackageManager(version);
-                if (result) return;
+                if (result) {
+                    await logInstalledVersion('valgrind', 'valgrind');
+                    return;
+                }
                 break;
             }
             case 'source': {
@@ -271,7 +270,10 @@ export async function installValgrind(
                     configureArgs,
                     makeEnvs
                 );
-                if (result) return;
+                if (result) {
+                    await logInstalledVersion('valgrind', 'valgrind');
+                    return;
+                }
                 break;
             }
             case 'none': {
@@ -293,8 +295,8 @@ export async function installValgrind(
 export async function installValgrindFromBuilder(
     version: Version,
     githubToken: string,
-    valgrindUrl: URL,
-    valgrindShaUrl: URL
+    valgrindUrl?: URL,
+    valgrindShaUrl?: URL
 ): Promise<boolean> {
     return withGroup('Installing valgrind from builder', async () => {
         try {
@@ -342,8 +344,6 @@ export async function installValgrindFromBuilder(
                 ...entries.map((e) => path.join(extractDir, e)),
                 '/'
             ]);
-
-            await logInstalledVersion('valgrind', 'valgrind');
         } catch (error) {
             printError(`Failed to install valgrind from release: ${(error as Error).message}`);
 
@@ -394,8 +394,6 @@ export async function installValgrindWithPackageManager(version: Version): Promi
             await packageManager.accept(
                 new PackagesInstaller('valgrind', ...packageManager.getDebugInfoPackages())
             );
-
-            await logInstalledVersion('valgrind', 'valgrind');
 
             return true;
         } catch (error) {
@@ -486,10 +484,6 @@ export async function installValgrindFromSource(
 
             printInfo(`:: Running: make install`);
             await execPrivileged('make', ['install'], { cwd: sourceDir });
-
-            // TODO: move logInstalledVersion out of the withGroup, also in the other
-            // installValgrind functions
-            await logInstalledVersion('valgrind', 'valgrind', `valgrind-${resolvedVersion}`);
         } catch (error) {
             printError(`Failed to install valgrind from source: ${(error as Error).message}`);
             return false;

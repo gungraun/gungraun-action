@@ -85,16 +85,12 @@ export function getCargoBin(): string {
 }
 
 /** Logs the installed version of a binary, or a fallback string if unavailable. */
-export async function logInstalledVersion(
-    binary: string,
-    label: string,
-    fallback?: string
-): Promise<void> {
+export async function logInstalledVersion(binary: string, label: string): Promise<void> {
     const { stdout } = await exec.getExecOutput(binary, ['--version'], {
         silent: true,
         ignoreReturnCode: true
     });
-    printInfo(`${label} installed: ${stdout.trim() || fallback || 'version unknown'}`);
+    printInfo(`${label} installed: ${stdout.trim() || 'version unknown'}`);
 }
 
 export function normalizePath(path: string): string {
