@@ -1,8 +1,10 @@
-#!/usr/bin/env bash
+#!/usr/bin/env sh
 
-set -euo pipefail
+set -e
 
-scripts_dir="$(dirname "${BASH_SOURCE[0]}")"
+if [ -n "${GUNGRAUN_ACTION_DEBUG}" ]; then set -x; fi
+
+scripts_dir="$(dirname "${0}")"
 
 strategy="$1"
 valgrind_version="$2"
@@ -11,23 +13,23 @@ case "$strategy" in
 system)
     system_version="$("${scripts_dir}/system-valgrind-version.sh")"
 
-    if [[ -z "$valgrind_version" || "$valgrind_version" == "auto" ]]; then
+    if [ -z "$valgrind_version" ] || [ "$valgrind_version" = "auto" ]; then
         echo "${system_version}"
-    elif [[ "$valgrind_version" == "latest" ]]; then
+    elif [ "$valgrind_version" = "latest" ]; then
         latest_version="$("${scripts_dir}/source-valgrind-versions.sh" | tail -1)"
-        if [[ "$system_version" == "$latest_version" ]]; then
+        if [ "$system_version" = "$latest_version" ]; then
             echo "${latest_version}"
         else
             echo "none"
         fi
-    elif [[ "$system_version" == "$valgrind_version" ]]; then
+    elif [ "$system_version" = "$valgrind_version" ]; then
         echo "${valgrind_version}"
     else
         echo "none"
     fi
     ;;
 builder)
-    if [[ "$valgrind_version" == "latest" || "$valgrind_version" == "auto" ]]; then
+    if [ "$valgrind_version" = "latest" ] || [ "$valgrind_version" = "auto" ]; then
         latest_builder_version="$("${scripts_dir}/builder-valgrind-versions.sh" | tail -1)"
         echo "${latest_builder_version}"
     elif "${scripts_dir}/builder-valgrind-versions.sh" | grep -q "$valgrind_version"; then
@@ -37,7 +39,7 @@ builder)
     fi
     ;;
 source)
-    if [[ "$valgrind_version" == "latest" || "$valgrind_version" == "auto" ]]; then
+    if [ "$valgrind_version" = "latest" ] || [ "$valgrind_version" = "auto" ]; then
         latest_source_version="$("${scripts_dir}/source-valgrind-versions.sh" | tail -1)"
         echo "${latest_source_version}"
     elif "${scripts_dir}/source-valgrind-versions.sh" | grep -q "$valgrind_version"; then

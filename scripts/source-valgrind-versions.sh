@@ -1,6 +1,8 @@
-#!/usr/bin/env bash
+#!/usr/bin/env sh
 
-set -euo pipefail
+set -e
+
+if [ -n "${GUNGRAUN_ACTION_DEBUG}" ]; then set -x; fi
 
 VALGRIND_SOURCE_REPO='https://sourceware.org/git/valgrind.git'
 
