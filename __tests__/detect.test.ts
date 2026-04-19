@@ -146,6 +146,7 @@ describe('detectPlatform', () => {
         const result = await detectPlatform();
 
         expect(result.id).toBe('ubuntu');
+        expect(result.relatedIds).toEqual(['debian']);
         expect(result.versionId).toBe('22.04');
         expect(result.platform).toBe('ubuntu-22.04');
         expect(result.packageManager).toBeInstanceOf(AptGet);
@@ -158,6 +159,7 @@ describe('detectPlatform', () => {
         const result = await detectPlatform();
 
         expect(result.id).toBe('alpine');
+        expect(result.relatedIds).toEqual([]);
         expect(result.versionId).toBe('3.19');
         expect(result.platform).toBe('alpine-3.19');
         expect(result.packageManager).toBeInstanceOf(Apk);
@@ -170,6 +172,7 @@ describe('detectPlatform', () => {
         const result = await detectPlatform();
 
         expect(result.id).toBe('arch');
+        expect(result.relatedIds).toEqual([]);
         expect(result.versionId).toBeNull();
         expect(result.platform).toBe('arch-unknown');
         expect(result.packageManager).toBeInstanceOf(Pacman);
@@ -184,6 +187,7 @@ describe('detectPlatform', () => {
         const result = await detectPlatform();
 
         expect(result.id).toBe('ubuntu');
+        expect(result.relatedIds).toEqual(['debian']);
         expect(result.versionId).toBe('22.04');
         expect(result.platform).toBe('ubuntu-22.04');
         expect(result.packageManager).toBeInstanceOf(AptGet);
@@ -215,9 +219,21 @@ describe('detectPlatform', () => {
         const result = await detectPlatform();
 
         expect(result.id).toBe('unknown');
+        expect(result.relatedIds).toEqual([]);
         expect(result.versionId).toBe('1.0');
         expect(result.platform).toBe('unknown-1.0');
         expect(result.packageManager).toBeNull();
+    });
+
+    it('when ID_LIKE has multiple space-separated values then splits them', async () => {
+        const content = 'ID="manjaro-arm"\nVERSION_ID="23.02"\nID_LIKE="arch linux"';
+
+        jest.spyOn(fs, 'existsSync').mockReturnValue(true);
+        jest.spyOn(fs, 'readFileSync').mockReturnValue(content);
+
+        const result = await detectPlatform();
+
+        expect(result.relatedIds).toEqual(['arch', 'linux']);
     });
 });
 

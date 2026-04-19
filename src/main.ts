@@ -4,15 +4,12 @@ import * as io from '@actions/io';
 import { installRunner, installValgrind } from './install';
 import { getCargoBin, bail, printInfo } from './utils';
 import { Inputs, parseInputs } from './inputs';
+import { detectPlatform } from './detect';
 
 /** Main entry point: validates environment, detects versions, and installs gungraun-runner and valgrind. */
 async function run(): Promise<void> {
     if (process.platform !== 'linux') {
-        bail('This action only supports Linux runners');
-    }
-
-    if (!(await io.which(getCargoBin(), false))) {
-        bail('cargo is not installed. This action requires Rust/Cargo.');
+        bail('This action currently only supports Linux runners');
     }
 
     let inputs: Inputs;
@@ -20,6 +17,12 @@ async function run(): Promise<void> {
         inputs = await parseInputs();
     } catch (error) {
         bail(`Error parsing inputs: ${(error as Error).message}`);
+    }
+
+    if (!inputs.runnerStrategies.includes('none') && !(await io.which(getCargoBin(), false))) {
+        bail(
+            'cargo is not installed. This action requires Rust/Cargo to be able to install gungraun-runner.'
+        );
     }
 
     const {
@@ -55,6 +58,11 @@ async function run(): Promise<void> {
                 valgrindUrl,
                 valgrindShaUrl
             );
+
+            const { id, relatedIds } = await detectPlatform();
+            if (relatedIds.length === 0 ? id === 'arch' : relatedIds.includes('arch')) {
+                core.exportVariable('DEBUGINFOD_URLS', 'https://debuginfod.archlinux.org');
+            }
         } catch (error) {
             bail(`Error installing valgrind: ${(error as Error).message}`);
         }

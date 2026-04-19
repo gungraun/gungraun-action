@@ -40,18 +40,24 @@ jest.mock('../src/detect');
 jest.mock('../src/download');
 jest.mock('../src/resolve');
 
-jest.mock('../src/utils', () => ({
-    findBinary: jest.fn(),
-    getCargoBin: jest.fn(() => 'cargo'),
-    logInstalledVersion: jest.fn().mockResolvedValue(undefined),
-    printError: jest.fn(),
-    printInfo: jest.fn(),
-    printWarning: jest.fn(),
-    withGroup: jest.fn((_name: string, fn: () => Promise<unknown>) => fn()),
-    GUNGRAUN_REPO: 'gungraun/gungraun',
-    VALGRIND_BUILDER_REPO: 'gungraun/valgrind-builder',
-    VALGRIND_SOURCE_REPO: 'https://sourceware.org/git/valgrind.git'
-}));
+jest.mock('../src/utils', () => {
+    const actualUtils = jest.requireActual('../src/utils');
+    return {
+        findBinary: jest.fn(),
+        getCargoBin: jest.fn(() => 'cargo'),
+        logInstalledVersion: jest.fn().mockResolvedValue(undefined),
+        printError: jest.fn(),
+        printInfo: jest.fn(),
+        printWarning: jest.fn(),
+        withGroup: jest.fn((_name: string, fn: () => Promise<unknown>) => fn()),
+        execPrivileged: actualUtils.execPrivileged,
+        execPrivilegedWithOutput: actualUtils.execPrivilegedWithOutput,
+        isRoot: actualUtils.isRoot,
+        GUNGRAUN_REPO: 'gungraun/gungraun',
+        VALGRIND_BUILDER_REPO: 'gungraun/valgrind-builder',
+        VALGRIND_SOURCE_REPO: 'https://sourceware.org/git/valgrind.git'
+    };
+});
 
 jest.mock('fs', () => {
     const realFs = jest.requireActual('fs');
@@ -69,6 +75,10 @@ jest.mock('fs', () => {
 afterEach(() => {
     jest.clearAllMocks();
     jest.restoreAllMocks();
+});
+
+beforeEach(() => {
+    jest.spyOn(process, 'getuid').mockReturnValue(1000);
 });
 
 function createMockPackageManager() {
@@ -630,13 +640,11 @@ describe('installValgrindFromBuilder', () => {
             ''
         );
 
-        expect(exec.exec).toHaveBeenCalledWith('sudo', [
-            'cp',
-            '-a',
-            '/tmp/extract/bin',
-            '/tmp/extract/lib',
-            '/'
-        ]);
+        expect(exec.exec).toHaveBeenCalledWith(
+            'sudo',
+            ['cp', '-a', '/tmp/extract/bin', '/tmp/extract/lib', '/'],
+            { silent: true }
+        );
     });
 });
 
@@ -884,9 +892,49 @@ describe('installValgrindFromSource', () => {
             cwd: sourceDir
         });
         expect(exec.exec).toHaveBeenCalledWith('sudo', ['make', 'install'], {
-            cwd: sourceDir
+            cwd: sourceDir,
+            silent: true
         });
         expect(logInstalledVersion).toHaveBeenCalledWith('valgrind', 'valgrind', 'valgrind-3.20.0');
+    });
+
+    it('when alpine then sets special flags', async () => {
+        (resolveValgrindVersion as jest.Mock).mockResolvedValue(resolvedVersion);
+        (downloadAndExtractValgrindSource as jest.Mock).mockResolvedValue('/tmp/extract');
+        (exec.exec as jest.Mock).mockResolvedValue(0);
+        (os.cpus as jest.Mock).mockReturnValue([1, 2, 3, 4]);
+        (detectPlatform as jest.Mock).mockResolvedValue({
+            id: 'alpine',
+            versionId: '3.19',
+            platform: 'alpine-3.19',
+            packageManager: createMockPackageManager()
+        });
+
+        await installValgrindFromSource(new Version(3, 20, 0), false);
+
+        const sourceDir = '/tmp/extract/valgrind-3.20.0';
+        expect(exec.exec).toHaveBeenCalledWith(
+            './configure',
+            ['--prefix=/usr', '--without-mpicc'],
+            {
+                cwd: sourceDir,
+                env: {
+                    ...(process.env as Record<string, string>),
+                    CFLAGS: '-fno-stack-protector -no-pie -U_FORTIFY_SOURCE'
+                }
+            }
+        );
+        expect(exec.exec).toHaveBeenCalledWith('make', ['-j4', 'BUILD_DOCS=none'], {
+            cwd: sourceDir,
+            env: {
+                ...(process.env as Record<string, string>),
+                CFLAGS: '-fno-stack-protector -no-pie -U_FORTIFY_SOURCE'
+            }
+        });
+        expect(exec.exec).toHaveBeenCalledWith('sudo', ['make', 'install'], {
+            cwd: sourceDir,
+            silent: true
+        });
     });
 
     it('when configure or make fails then returns false', async () => {

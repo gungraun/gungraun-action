@@ -11,6 +11,10 @@ export const VALGRIND_BUILDER_REPO = 'gungraun/valgrind-builder';
 
 export const VALGRIND_SOURCE_REPO = 'https://sourceware.org/git/valgrind.git';
 
+export function isDebug(): boolean {
+    return !!process.env.GUNGRAUN_ACTION_DEBUG;
+}
+
 /** Marks the action as failed and exits the process. Never returns. */
 export function bail(message: string): never {
     core.setFailed(message);
@@ -22,17 +26,46 @@ export function escapeRegex(str: string): string {
     return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-export async function execSudoWithOutput(...args: string[]): Promise<string> {
-    const { stdout } = await exec.getExecOutput('sudo', args, {
-        silent: true
-    });
-    return stdout;
+export function isRoot(): boolean {
+    return process.getuid?.() === 0;
 }
 
-export async function execSudo(...args: string[]): Promise<void> {
-    await exec.exec('sudo', args, {
-        silent: true
-    });
+export async function execPrivileged(
+    cmd: string,
+    args: string[],
+    opts?: { cwd?: string; env?: Record<string, string> }
+): Promise<void> {
+    const execOpts: exec.ExecOptions = { silent: !isDebug() };
+
+    if (opts?.cwd) {
+        execOpts.cwd = opts.cwd;
+    }
+    if (opts?.env) {
+        execOpts.env = { ...(process.env as Record<string, string>), ...opts.env };
+    }
+    if (isRoot()) {
+        await exec.exec(cmd, args, execOpts);
+    } else {
+        await exec.exec('sudo', [cmd, ...args], execOpts);
+    }
+}
+
+export async function execPrivilegedWithOutput(
+    cmd: string,
+    args: string[],
+    opts?: { env?: Record<string, string> }
+): Promise<string> {
+    const execOpts: exec.ExecOptions = { silent: !isDebug() };
+
+    if (opts?.env) {
+        execOpts.env = { ...(process.env as Record<string, string>), ...opts.env };
+    }
+    if (isRoot()) {
+        const { stdout } = await exec.getExecOutput(cmd, args, execOpts);
+        return stdout;
+    }
+    const { stdout } = await exec.getExecOutput('sudo', [cmd, ...args], execOpts);
+    return stdout;
 }
 
 export async function findBinary(dir: string, name: string): Promise<string | null> {

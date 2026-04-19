@@ -32582,9 +32582,10 @@ async function detectPlatform() {
     const versionId = versionMatch ? versionMatch[1].trim() : null;
     const idLikeMatch = content.match(/^ID_LIKE="?(.+?)"?$/m);
     const idLike = idLikeMatch ? idLikeMatch[1].trim() : null;
+    const relatedIds = idLike?.split(' ') ?? [];
     const packageManager = resolvePackageManager(id, idLike);
     const platform = versionId ? `${id}-${versionId}` : `${id}-unknown`;
-    return { id, versionId, platform, packageManager };
+    return { id, relatedIds, versionId, platform, packageManager };
 }
 /** Detects the gungraun-runner version from the project's cargo metadata or pkgid. */
 async function detectProjectVersion() {
@@ -33334,8 +33335,7 @@ async function installValgrindFromBuilder(version, githubToken, valgrindUrl, val
                 extractDir = await (0, download_1.downloadAndExtractValgrind)(version_1.Version.latest(), name, githubToken);
             }
             const entries = await fs.promises.readdir(extractDir);
-            await exec.exec('sudo', [
-                'cp',
+            await (0, utils_1.execPrivileged)('cp', [
                 '-a',
                 ...entries.map((e) => path.join(extractDir, e)),
                 '/'
@@ -33414,6 +33414,7 @@ async function installValgrindBuildDeps() {
 async function installValgrindFromSource(version, installBuildDeps = false) {
     return (0, utils_1.withGroup)('Installing valgrind from source', async () => {
         try {
+            const { id } = await (0, detect_1.detectPlatform)();
             const resolvedVersion = await (0, resolve_1.resolveValgrindVersion)(version);
             if (installBuildDeps) {
                 const depsResult = await installValgrindBuildDeps();
@@ -33424,10 +33425,21 @@ async function installValgrindFromSource(version, installBuildDeps = false) {
             }
             const extractDir = await (0, download_1.downloadAndExtractValgrindSource)(resolvedVersion);
             const sourceDir = path.join(extractDir, `valgrind-${resolvedVersion}`);
-            await exec.exec('./configure', ['--prefix=/usr'], { cwd: sourceDir });
+            const execOpts = { cwd: sourceDir };
+            const args = [];
+            // based on the APKBUILD:
+            // https://gitlab.alpinelinux.org/alpine/aports/-/blob/68861fc5eb9fcc485c720fdf743272b41cbc313b/main/valgrind/APKBUILD
+            if (id === 'alpine') {
+                execOpts.env = {
+                    ...process.env,
+                    CFLAGS: '-fno-stack-protector -no-pie -U_FORTIFY_SOURCE'
+                };
+                args.push('--without-mpicc');
+            }
+            await exec.exec('./configure', ['--prefix=/usr', ...args], execOpts);
             const ncpus = os.cpus().length;
-            await exec.exec('make', [`-j${ncpus}`, 'BUILD_DOCS=none'], { cwd: sourceDir });
-            await exec.exec('sudo', ['make', 'install'], { cwd: sourceDir });
+            await exec.exec('make', [`-j${ncpus}`, 'BUILD_DOCS=none'], execOpts);
+            await (0, utils_1.execPrivileged)('make', ['install'], { cwd: sourceDir });
             await (0, utils_1.logInstalledVersion)('valgrind', 'valgrind', `valgrind-${resolvedVersion}`);
         }
         catch (error) {
@@ -33487,13 +33499,11 @@ const io = __importStar(__nccwpck_require__(4994));
 const install_1 = __nccwpck_require__(232);
 const utils_1 = __nccwpck_require__(1798);
 const inputs_1 = __nccwpck_require__(8422);
+const detect_1 = __nccwpck_require__(1052);
 /** Main entry point: validates environment, detects versions, and installs gungraun-runner and valgrind. */
 async function run() {
     if (process.platform !== 'linux') {
-        (0, utils_1.bail)('This action only supports Linux runners');
-    }
-    if (!(await io.which((0, utils_1.getCargoBin)(), false))) {
-        (0, utils_1.bail)('cargo is not installed. This action requires Rust/Cargo.');
+        (0, utils_1.bail)('This action currently only supports Linux runners');
     }
     let inputs;
     try {
@@ -33501,6 +33511,9 @@ async function run() {
     }
     catch (error) {
         (0, utils_1.bail)(`Error parsing inputs: ${error.message}`);
+    }
+    if (!inputs.runnerStrategies.includes('none') && !(await io.which((0, utils_1.getCargoBin)(), false))) {
+        (0, utils_1.bail)('cargo is not installed. This action requires Rust/Cargo to be able to install gungraun-runner.');
     }
     const { githubToken, installBuildDeps, runnerStrategies, runnerVersion, runnerTarget, valgrindStrategies, valgrindUrl, valgrindShaUrl, valgrindVersion } = inputs;
     const valgrindPath = await io.which('valgrind', false);
@@ -33519,6 +33532,10 @@ async function run() {
     else {
         try {
             await (0, install_1.installValgrind)(valgrindVersion, valgrindStrategies, installBuildDeps, githubToken, valgrindUrl, valgrindShaUrl);
+            const { id, relatedIds } = await (0, detect_1.detectPlatform)();
+            if (relatedIds.length === 0 ? id === 'arch' : relatedIds.includes('arch')) {
+                core.exportVariable('DEBUGINFOD_URLS', 'https://debuginfod.archlinux.org');
+            }
         }
         catch (error) {
             (0, utils_1.bail)(`Error installing valgrind: ${error.message}`);
@@ -33544,14 +33561,14 @@ run().catch((error) => {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.PackagesInstaller = exports.FetchLatestPackageVersion = exports.Zypper = exports.Yum = exports.Pacman = exports.Dnf = exports.AptGet = exports.Apk = void 0;
+exports.PackagesInstaller = exports.FetchLatestPackageVersion = exports.Zypper = exports.Yum = exports.Pacman = exports.MicroDnf = exports.Dnf = exports.AptGet = exports.Apk = void 0;
 const version_1 = __nccwpck_require__(311);
 const utils_1 = __nccwpck_require__(1798);
 class Apk {
     debugInfoPackages = ['musl-dbg'];
     // The busybox sed doesn't work with the configure script
     valgrindBuildDeps = [
-        'build-dev',
+        'build-base',
         'bzip2',
         'sed',
         'perl',
@@ -33567,13 +33584,13 @@ class Apk {
         return this.valgrindBuildDeps;
     }
     async updateCache() {
-        await (0, utils_1.execSudo)('apk', 'update');
+        await (0, utils_1.execPrivileged)('apk', ['update']);
     }
 }
 exports.Apk = Apk;
 class AptGet {
     debugInfoPackages = ['libc6-dbg'];
-    valgrindBuildDeps = ['gcc', 'make', 'bzip2'];
+    valgrindBuildDeps = ['build-essential', 'gcc', 'make', 'bzip2'];
     accept(v) {
         return v.visitAptGet(this);
     }
@@ -33584,7 +33601,9 @@ class AptGet {
         return this.valgrindBuildDeps;
     }
     async updateCache() {
-        await (0, utils_1.execSudo)('apt-get', 'update', '-qq');
+        await (0, utils_1.execPrivileged)('apt-get', ['update', '-qq', '--allow-releaseinfo-change'], {
+            env: { DEBIAN_FRONTEND: 'noninteractive' }
+        });
     }
 }
 exports.AptGet = AptGet;
@@ -33611,6 +33630,21 @@ class Dnf {
     }
 }
 exports.Dnf = Dnf;
+class MicroDnf extends Dnf {
+    accept(v) {
+        return v.visitMicroDnf(this);
+    }
+    extractVersionStrings(output, pkg) {
+        // sample: "valgrind-1:3.25.1-3.el10.x86_64"
+        const regex = new RegExp(String.raw `^${pkg}[^\s:]*:([^\s]+).*`, 'gm');
+        const matches = [...output.matchAll(regex)];
+        if (matches.length === 0) {
+            return null;
+        }
+        return matches.map((m) => m[1]);
+    }
+}
+exports.MicroDnf = MicroDnf;
 class Pacman {
     // Arch linux doesn't ship the debug symbols with glibc and doesn't have them as a separate
     // package. Instead, arch linux relies on debuginfod.
@@ -33626,7 +33660,7 @@ class Pacman {
         return this.valgrindBuildDeps;
     }
     async updateCache() {
-        await (0, utils_1.execSudo)('pacman', '-Sy');
+        await (0, utils_1.execPrivileged)('pacman', ['-Sy']);
     }
 }
 exports.Pacman = Pacman;
@@ -33667,7 +33701,9 @@ class FetchLatestPackageVersion {
     }
     async visitAptGet(pm) {
         await pm.updateCache();
-        const output = await (0, utils_1.execSudoWithOutput)('apt-cache', 'policy', this.pkg);
+        const output = await (0, utils_1.execPrivilegedWithOutput)('apt-cache', ['policy', this.pkg], {
+            env: { DEBIAN_FRONTEND: 'noninteractive' }
+        });
         // sample: "  Installed: (none)\n  Candidate: 1:3.15.0-1"
         const regex = new RegExp(String.raw `^\s*Candidate:\s*([^\s]+)`, 'gm');
         const matches = [...output.matchAll(regex)];
@@ -33675,7 +33711,7 @@ class FetchLatestPackageVersion {
     }
     async visitApk(pm) {
         await pm.updateCache();
-        const output = await (0, utils_1.execSudoWithOutput)('apk', 'policy', this.pkg);
+        const output = await (0, utils_1.execPrivilegedWithOutput)('apk', ['policy', this.pkg]);
         // sample policy:
         // "valgrind policy:
         //    3.25.1-r2:
@@ -33685,13 +33721,33 @@ class FetchLatestPackageVersion {
         return FetchLatestPackageVersion.getLatestVersion(matches.map((m) => m[1]));
     }
     async visitDnf(pm) {
-        const output = await (0, utils_1.execSudoWithOutput)('dnf', 'list', '--showduplicates', this.pkg);
+        let output;
+        try {
+            output = await (0, utils_1.execPrivilegedWithOutput)('dnf', [
+                '--enablerepo=*-debuginfo',
+                'list',
+                '--showduplicates',
+                this.pkg
+            ]);
+        }
+        catch {
+            return new MicroDnf().accept(new FetchLatestPackageVersion(this.pkg));
+        }
+        const matches = pm.extractVersionStrings(output, this.pkg);
+        return FetchLatestPackageVersion.getLatestVersion(matches);
+    }
+    async visitMicroDnf(pm) {
+        const output = await (0, utils_1.execPrivilegedWithOutput)('microdnf', [
+            '--enablerepo=*-debuginfo',
+            'repoquery',
+            this.pkg
+        ]);
         const matches = pm.extractVersionStrings(output, this.pkg);
         return FetchLatestPackageVersion.getLatestVersion(matches);
     }
     async visitPacman(pm) {
         await pm.updateCache();
-        const output = await (0, utils_1.execSudoWithOutput)('pacman', '-Si', this.pkg);
+        const output = await (0, utils_1.execPrivilegedWithOutput)('pacman', ['-Si', this.pkg]);
         // sample: "Version         : 3.17.0-1"
         const regex = new RegExp(String.raw `^\s*Version\s*:\s*([^\s]+)`, 'gm');
         const matches = [...output.matchAll(regex)];
@@ -33700,7 +33756,12 @@ class FetchLatestPackageVersion {
     async visitYum(pm) {
         let output;
         try {
-            output = await (0, utils_1.execSudoWithOutput)('yum', 'list', '--showduplicates', this.pkg);
+            output = await (0, utils_1.execPrivilegedWithOutput)('yum', [
+                '--enablerepo=*-debuginfo',
+                'list',
+                '--showduplicates',
+                this.pkg
+            ]);
         }
         catch {
             return new Dnf().accept(new FetchLatestPackageVersion(this.pkg));
@@ -33709,7 +33770,7 @@ class FetchLatestPackageVersion {
         return FetchLatestPackageVersion.getLatestVersion(matches);
     }
     async visitZypper(_pm) {
-        const output = await (0, utils_1.execSudoWithOutput)('zypper', 'info', this.pkg);
+        const output = await (0, utils_1.execPrivilegedWithOutput)('zypper', ['info', this.pkg]);
         // sample: "Version   : 3.17.0-1.1"
         const regex = new RegExp(String.raw `^\s*Version\s*:\s*([^\s]+)`, 'gm');
         const matches = [...output.matchAll(regex)];
@@ -33728,30 +33789,55 @@ class PackagesInstaller {
     async visitAptGet(pm) {
         if (this.hasPackages()) {
             await pm.updateCache();
-            await (0, utils_1.execSudoWithOutput)('apt-get', 'install', '-y', ...this.pkgs);
+            await (0, utils_1.execPrivilegedWithOutput)('apt-get', ['install', '-y', '--no-install-recommends', ...this.pkgs], { env: { DEBIAN_FRONTEND: 'noninteractive' } });
         }
     }
     async visitApk(pm) {
         if (this.hasPackages()) {
             await pm.updateCache();
-            await (0, utils_1.execSudoWithOutput)('apk', 'add', '--interactive=no', ...this.pkgs);
+            await (0, utils_1.execPrivilegedWithOutput)('apk', ['add', ...this.pkgs]);
         }
     }
     async visitDnf(_pm) {
         if (this.hasPackages()) {
-            await (0, utils_1.execSudoWithOutput)('dnf', 'install', '-y', ...this.pkgs);
+            try {
+                await (0, utils_1.execPrivilegedWithOutput)('dnf', [
+                    '--enablerepo=*-debuginfo',
+                    'install',
+                    '-y',
+                    ...this.pkgs
+                ]);
+            }
+            catch {
+                return new MicroDnf().accept(new PackagesInstaller(...this.pkgs));
+            }
+        }
+    }
+    async visitMicroDnf(_pm) {
+        if (this.hasPackages()) {
+            await (0, utils_1.execPrivilegedWithOutput)('microdnf', [
+                '--enablerepo=*-debuginfo',
+                'install',
+                '-y',
+                ...this.pkgs
+            ]);
         }
     }
     async visitPacman(pm) {
         if (this.hasPackages()) {
             await pm.updateCache();
-            await (0, utils_1.execSudoWithOutput)('pacman', '-S', '--noconfirm', ...this.pkgs);
+            await (0, utils_1.execPrivilegedWithOutput)('pacman', ['-S', '--noconfirm', ...this.pkgs]);
         }
     }
     async visitYum(_pm) {
         if (this.hasPackages()) {
             try {
-                await (0, utils_1.execSudoWithOutput)('yum', 'install', '-y', ...this.pkgs);
+                await (0, utils_1.execPrivilegedWithOutput)('yum', [
+                    '--enablerepo=*-debuginfo',
+                    'install',
+                    '-y',
+                    ...this.pkgs
+                ]);
             }
             catch {
                 return new Dnf().accept(new PackagesInstaller(...this.pkgs));
@@ -33760,7 +33846,13 @@ class PackagesInstaller {
     }
     async visitZypper(_pm) {
         if (this.hasPackages()) {
-            await (0, utils_1.execSudoWithOutput)('zypper', '--non-interactive', '--plus-content', 'debug', 'install', ...this.pkgs);
+            await (0, utils_1.execPrivilegedWithOutput)('zypper', [
+                '--non-interactive',
+                '--plus-content',
+                'debug',
+                'install',
+                ...this.pkgs
+            ]);
         }
     }
 }
@@ -33992,10 +34084,12 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.VALGRIND_SOURCE_REPO = exports.VALGRIND_BUILDER_REPO = exports.GUNGRAUN_REPO = void 0;
+exports.isDebug = isDebug;
 exports.bail = bail;
 exports.escapeRegex = escapeRegex;
-exports.execSudoWithOutput = execSudoWithOutput;
-exports.execSudo = execSudo;
+exports.isRoot = isRoot;
+exports.execPrivileged = execPrivileged;
+exports.execPrivilegedWithOutput = execPrivilegedWithOutput;
 exports.findBinary = findBinary;
 exports.getCargoBin = getCargoBin;
 exports.logInstalledVersion = logInstalledVersion;
@@ -34014,6 +34108,9 @@ exports.GUNGRAUN_REPO = 'gungraun/gungraun';
 /** GitHub repository for valgrind-builder releases. */
 exports.VALGRIND_BUILDER_REPO = 'gungraun/valgrind-builder';
 exports.VALGRIND_SOURCE_REPO = 'https://sourceware.org/git/valgrind.git';
+function isDebug() {
+    return !!process.env.GUNGRAUN_ACTION_DEBUG;
+}
 /** Marks the action as failed and exits the process. Never returns. */
 function bail(message) {
     core.setFailed(message);
@@ -34023,16 +34120,35 @@ function bail(message) {
 function escapeRegex(str) {
     return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
-async function execSudoWithOutput(...args) {
-    const { stdout } = await exec.getExecOutput('sudo', args, {
-        silent: true
-    });
-    return stdout;
+function isRoot() {
+    return process.getuid?.() === 0;
 }
-async function execSudo(...args) {
-    await exec.exec('sudo', args, {
-        silent: true
-    });
+async function execPrivileged(cmd, args, opts) {
+    const execOpts = { silent: !isDebug() };
+    if (opts?.cwd) {
+        execOpts.cwd = opts.cwd;
+    }
+    if (opts?.env) {
+        execOpts.env = { ...process.env, ...opts.env };
+    }
+    if (isRoot()) {
+        await exec.exec(cmd, args, execOpts);
+    }
+    else {
+        await exec.exec('sudo', [cmd, ...args], execOpts);
+    }
+}
+async function execPrivilegedWithOutput(cmd, args, opts) {
+    const execOpts = { silent: !isDebug() };
+    if (opts?.env) {
+        execOpts.env = { ...process.env, ...opts.env };
+    }
+    if (isRoot()) {
+        const { stdout } = await exec.getExecOutput(cmd, args, execOpts);
+        return stdout;
+    }
+    const { stdout } = await exec.getExecOutput('sudo', [cmd, ...args], execOpts);
+    return stdout;
 }
 async function findBinary(dir, name) {
     const entries = fs.readdirSync(dir, { withFileTypes: true, recursive: true });

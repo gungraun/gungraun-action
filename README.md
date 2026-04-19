@@ -1,5 +1,10 @@
 # gungraun/action
 
+<!-- TODO: Add prerequisites for valgrind installation (ubuntu):
+  git ca-certificates -->
+<!-- TODO: Add prerequisites for valgrind installation (almalinux:*-minimal):
+  tar -->
+
 GitHub Action to install `gungraun-runner` and `valgrind` on Linux runners.
 
 ## Usage

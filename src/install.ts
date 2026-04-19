@@ -17,6 +17,7 @@ import {
     resolveRunnerVersion
 } from './resolve';
 import {
+    execPrivileged,
     findBinary,
     getCargoBin,
     logInstalledVersion,
@@ -331,8 +332,7 @@ export async function installValgrindFromBuilder(
             }
 
             const entries = await fs.promises.readdir(extractDir);
-            await exec.exec('sudo', [
-                'cp',
+            await execPrivileged('cp', [
                 '-a',
                 ...entries.map((e) => path.join(extractDir, e)),
                 '/'
@@ -434,6 +434,7 @@ export async function installValgrindFromSource(
 ): Promise<boolean> {
     return withGroup('Installing valgrind from source', async () => {
         try {
+            const { id } = await detectPlatform();
             const resolvedVersion = await resolveValgrindVersion(version);
 
             if (installBuildDeps) {
@@ -447,11 +448,23 @@ export async function installValgrindFromSource(
             const extractDir = await downloadAndExtractValgrindSource(resolvedVersion);
             const sourceDir = path.join(extractDir, `valgrind-${resolvedVersion}`);
 
-            await exec.exec('./configure', ['--prefix=/usr'], { cwd: sourceDir });
+            const execOpts: exec.ExecOptions = { cwd: sourceDir };
+            const args = [];
+
+            // based on the APKBUILD:
+            // https://gitlab.alpinelinux.org/alpine/aports/-/blob/68861fc5eb9fcc485c720fdf743272b41cbc313b/main/valgrind/APKBUILD
+            if (id === 'alpine') {
+                execOpts.env = {
+                    ...(process.env as Record<string, string>),
+                    CFLAGS: '-fno-stack-protector -no-pie -U_FORTIFY_SOURCE'
+                };
+                args.push('--without-mpicc');
+            }
+            await exec.exec('./configure', ['--prefix=/usr', ...args], execOpts);
 
             const ncpus = os.cpus().length;
-            await exec.exec('make', [`-j${ncpus}`, 'BUILD_DOCS=none'], { cwd: sourceDir });
-            await exec.exec('sudo', ['make', 'install'], { cwd: sourceDir });
+            await exec.exec('make', [`-j${ncpus}`, 'BUILD_DOCS=none'], execOpts);
+            await execPrivileged('make', ['install'], { cwd: sourceDir });
 
             await logInstalledVersion('valgrind', 'valgrind', `valgrind-${resolvedVersion}`);
         } catch (error) {
