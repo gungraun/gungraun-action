@@ -33169,6 +33169,7 @@ exports.parseRunnerStrategies = parseRunnerStrategies;
 exports.parseRunnerVersion = parseRunnerVersion;
 exports.parseStrategies = parseStrategies;
 exports.parseValgrindConfigureArgs = parseValgrindConfigureArgs;
+exports.parseValgrindMakeEnvs = parseValgrindMakeEnvs;
 exports.parseValgrindStrategies = parseValgrindStrategies;
 exports.parseValgrindUrl = parseValgrindUrl;
 exports.parseValgrindShaUrl = parseValgrindShaUrl;
@@ -33179,6 +33180,7 @@ const shell_quote_1 = __nccwpck_require__(6591);
 const version_1 = __nccwpck_require__(311);
 const detect_1 = __nccwpck_require__(1052);
 const resolve_1 = __nccwpck_require__(1259);
+const utils_1 = __nccwpck_require__(1798);
 exports.VALID_VALGRIND_STRATEGIES = [
     'builder',
     'none',
@@ -33205,6 +33207,7 @@ async function parseInputs() {
     const runnerVersion = await parseRunnerVersion(isRunnerStrategyNone, githubToken);
     const valgrindVersion = await parseValgrindVersion();
     const valgrindConfigureArgs = await parseValgrindConfigureArgs();
+    const valgrindMakeEnvs = await parseValgrindMakeEnvs();
     const valgrindStrategies = await parseValgrindStrategies();
     const valgrindUrl = await parseValgrindUrl();
     const valgrindShaUrl = await parseValgrindShaUrl();
@@ -33215,6 +33218,7 @@ async function parseInputs() {
         runnerTarget,
         runnerVersion,
         valgrindConfigureArgs,
+        valgrindMakeEnvs,
         valgrindStrategies,
         valgrindUrl,
         valgrindShaUrl,
@@ -33300,6 +33304,22 @@ async function parseValgrindConfigureArgs() {
         args.push(token);
     }
     return args;
+}
+async function parseValgrindMakeEnvs() {
+    const input = core.getInput('valgrind-make-envs');
+    if (!input) {
+        return new Map();
+    }
+    const parsed = (0, shell_quote_1.parse)(input);
+    const envs = new Map();
+    for (const token of parsed) {
+        if (typeof token !== 'string') {
+            throw new Error(`Invalid valgrind-make-envs: other tokens than strings are not allowed`);
+        }
+        const [key, value] = (0, utils_1.splitOnce)(token, '=').map((t) => t.trim());
+        envs.set(key, value);
+    }
+    return envs;
 }
 async function parseValgrindStrategies() {
     try {
@@ -33567,7 +33587,7 @@ async function installRunnerWithBinstall(version, target) {
     });
 }
 /** Installs valgrind by trying each strategy in order until one succeeds. */
-async function installValgrind(version, strategies, installBuildDeps = false, githubToken, valgrindUrl, valgrindShaUrl, configureArgs = []) {
+async function installValgrind(version, strategies, installBuildDeps = false, githubToken, valgrindUrl, valgrindShaUrl, configureArgs = [], makeEnvs = new Map()) {
     for (const strategy of strategies) {
         switch (strategy) {
             case 'builder': {
@@ -33583,7 +33603,7 @@ async function installValgrind(version, strategies, installBuildDeps = false, gi
                 break;
             }
             case 'source': {
-                const result = await installValgrindFromSource(version.isAuto() ? version_1.Version.latest() : version, installBuildDeps, configureArgs);
+                const result = await installValgrindFromSource(version.isAuto() ? version_1.Version.latest() : version, installBuildDeps, configureArgs, makeEnvs);
                 if (result)
                     return;
                 break;
@@ -33704,7 +33724,7 @@ async function installValgrindBuildDeps() {
     });
 }
 /** Installs valgrind from the source tarball. */
-async function installValgrindFromSource(version, installBuildDeps = false, configureArgs = []) {
+async function installValgrindFromSource(version, installBuildDeps = false, configureArgs = [], makeEnvs = new Map()) {
     return (0, utils_1.withGroup)('Installing valgrind from source', async () => {
         try {
             const { id } = await (0, detect_1.detectPlatform)();
@@ -33725,9 +33745,16 @@ async function installValgrindFromSource(version, installBuildDeps = false, conf
             if (id === 'alpine') {
                 execOpts.env = {
                     CFLAGS: '-fno-stack-protector -no-pie -U_FORTIFY_SOURCE',
-                    ...process.env
+                    ...process.env,
+                    ...Object.fromEntries(makeEnvs)
                 };
                 args.push('--without-mpicc');
+            }
+            else {
+                execOpts.env = {
+                    ...process.env,
+                    ...Object.fromEntries(makeEnvs)
+                };
             }
             args.push(...configureArgs);
             (0, utils_1.printInfo)(`:: Running: ./configure ${(0, shell_quote_1.quote)(args)}`);
@@ -33735,7 +33762,7 @@ async function installValgrindFromSource(version, installBuildDeps = false, conf
             const ncpus = os.cpus().length;
             const makeArgs = [`-j${ncpus}`, 'BUILD_DOCS=none'];
             (0, utils_1.printInfo)(`:: Running: make ${(0, shell_quote_1.quote)(args)}`);
-            await exec.exec('make', makeArgs, execOpts);
+            await exec.exec('make', makeArgs, { ...execOpts });
             (0, utils_1.printInfo)(`:: Running: make install`);
             await (0, utils_1.execPrivileged)('make', ['install'], { cwd: sourceDir });
             // TODO: move logInstalledVersion out of the withGroup, also in the other
@@ -33815,7 +33842,7 @@ async function run() {
     if (!inputs.runnerStrategies.includes('none') && !(await io.which((0, utils_1.getCargoBin)(), false))) {
         (0, utils_1.bail)('cargo is not installed. This action requires Rust/Cargo to be able to install gungraun-runner.');
     }
-    const { githubToken, installBuildDeps, runnerStrategies, runnerVersion, runnerTarget, valgrindConfigureArgs, valgrindStrategies, valgrindUrl, valgrindShaUrl, valgrindVersion } = inputs;
+    const { githubToken, installBuildDeps, runnerStrategies, runnerVersion, runnerTarget, valgrindConfigureArgs, valgrindMakeEnvs, valgrindStrategies, valgrindUrl, valgrindShaUrl, valgrindVersion } = inputs;
     const valgrindPath = await io.which('valgrind', false);
     if (valgrindPath) {
         try {
@@ -33831,7 +33858,7 @@ async function run() {
     }
     else {
         try {
-            await (0, install_1.installValgrind)(valgrindVersion, valgrindStrategies, installBuildDeps, githubToken, valgrindUrl, valgrindShaUrl, valgrindConfigureArgs);
+            await (0, install_1.installValgrind)(valgrindVersion, valgrindStrategies, installBuildDeps, githubToken, valgrindUrl, valgrindShaUrl, valgrindConfigureArgs, valgrindMakeEnvs);
             const { id, relatedIds } = await (0, detect_1.detectPlatform)();
             if (relatedIds.length === 0 ? id === 'arch' : relatedIds.includes('arch')) {
                 core.exportVariable('DEBUGINFOD_URLS', 'https://debuginfod.archlinux.org');

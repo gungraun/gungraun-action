@@ -34,8 +34,14 @@ inputs:
     default: 'auto'
   valgrind-configure-args:
     description:
-      'The extra arguments to pass to the ./configure when building valgrind
-      from source'
+      'The extra arguments to pass to ./configure when building valgrind from
+      source'
+    required: false
+    default: ''
+  valgrind-make-envs:
+    description:
+      'Environment variables to set when building valgrind from source (e.g.
+      "CFLAGS=--fno-stack-protector"). These apply to both ./configure and make.'
     required: false
     default: ''
   valgrind-sha-url:
@@ -48,6 +54,7 @@ inputs:
       'Ordered comma-separated list of valgrind install strategies to try. Valid
       values: builder, system, source, none'
     required: false
+    # FIX: Change to builder,source,system
     default: 'builder,system,source'
   valgrind-url:
     description:
@@ -57,7 +64,7 @@ inputs:
     default: ''
   valgrind-version:
     description:
-      'Valgrind release tag (e.g. v0.1.1, latest) or auto which installs the the
+      'Valgrind release tag (e.g. v0.1.1, latest) or auto which installs the
       latest possible version for the strategy'
     required: false
     default: 'latest'

@@ -870,7 +870,7 @@ describe('installValgrindFromSource', () => {
         expect(printError).toHaveBeenCalledWith('Failed to install build dependencies');
     });
 
-    it('when successful then runs configure, make, and make install', async () => {
+    it('when successful then makes valgrind', async () => {
         (resolveValgrindVersion as jest.Mock).mockResolvedValue(resolvedVersion);
         (downloadAndExtractValgrindSource as jest.Mock).mockResolvedValue('/tmp/extract');
         (exec.exec as jest.Mock).mockResolvedValue(0);
@@ -886,10 +886,17 @@ describe('installValgrindFromSource', () => {
 
         const sourceDir = '/tmp/extract/valgrind-3.20.0';
         expect(exec.exec).toHaveBeenCalledWith('./configure', ['--prefix=/usr'], {
-            cwd: sourceDir
+            cwd: sourceDir,
+            env: {
+                ...(process.env as Record<string, string>)
+            }
         });
+
         expect(exec.exec).toHaveBeenCalledWith('make', ['-j4', 'BUILD_DOCS=none'], {
-            cwd: sourceDir
+            cwd: sourceDir,
+            env: {
+                ...(process.env as Record<string, string>)
+            }
         });
         expect(exec.exec).toHaveBeenCalledWith('sudo', ['make', 'install'], {
             cwd: sourceDir,
@@ -919,16 +926,93 @@ describe('installValgrindFromSource', () => {
             {
                 cwd: sourceDir,
                 env: {
-                    ...(process.env as Record<string, string>),
-                    CFLAGS: '-fno-stack-protector -no-pie -U_FORTIFY_SOURCE'
+                    CFLAGS: '-fno-stack-protector -no-pie -U_FORTIFY_SOURCE',
+                    ...(process.env as Record<string, string>)
                 }
             }
         );
         expect(exec.exec).toHaveBeenCalledWith('make', ['-j4', 'BUILD_DOCS=none'], {
             cwd: sourceDir,
             env: {
+                CFLAGS: '-fno-stack-protector -no-pie -U_FORTIFY_SOURCE',
+                ...(process.env as Record<string, string>)
+            }
+        });
+        expect(exec.exec).toHaveBeenCalledWith('sudo', ['make', 'install'], {
+            cwd: sourceDir,
+            silent: true
+        });
+    });
+
+    it('when extra configure args', async () => {
+        (resolveValgrindVersion as jest.Mock).mockResolvedValue(resolvedVersion);
+        (downloadAndExtractValgrindSource as jest.Mock).mockResolvedValue('/tmp/extract');
+        (exec.exec as jest.Mock).mockResolvedValue(0);
+        (os.cpus as jest.Mock).mockReturnValue([1, 2, 3, 4]);
+        (detectPlatform as jest.Mock).mockResolvedValue({
+            id: 'ubuntu',
+            versionId: '22.04',
+            platform: 'ubuntu-22.04',
+            packageManager: createMockPackageManager()
+        });
+
+        await installValgrindFromSource(new Version(3, 20, 0), false, ['--prefix=/usr/local']);
+
+        const sourceDir = '/tmp/extract/valgrind-3.20.0';
+        expect(exec.exec).toHaveBeenCalledWith(
+            './configure',
+            ['--prefix=/usr', '--prefix=/usr/local'],
+            {
+                cwd: sourceDir,
+                env: {
+                    ...(process.env as Record<string, string>)
+                }
+            }
+        );
+        expect(exec.exec).toHaveBeenCalledWith('make', ['-j4', 'BUILD_DOCS=none'], {
+            cwd: sourceDir,
+            env: {
+                ...(process.env as Record<string, string>)
+            }
+        });
+        expect(exec.exec).toHaveBeenCalledWith('sudo', ['make', 'install'], {
+            cwd: sourceDir,
+            silent: true
+        });
+    });
+
+    it('when extra make envs', async () => {
+        (resolveValgrindVersion as jest.Mock).mockResolvedValue(resolvedVersion);
+        (downloadAndExtractValgrindSource as jest.Mock).mockResolvedValue('/tmp/extract');
+        (exec.exec as jest.Mock).mockResolvedValue(0);
+        (os.cpus as jest.Mock).mockReturnValue([1, 2, 3, 4]);
+        (detectPlatform as jest.Mock).mockResolvedValue({
+            id: 'ubuntu',
+            versionId: '22.04',
+            platform: 'ubuntu-22.04',
+            packageManager: createMockPackageManager()
+        });
+
+        await installValgrindFromSource(
+            new Version(3, 20, 0),
+            false,
+            undefined,
+            new Map([['CFLAGS', 'foo']])
+        );
+
+        const sourceDir = '/tmp/extract/valgrind-3.20.0';
+        expect(exec.exec).toHaveBeenCalledWith('./configure', ['--prefix=/usr'], {
+            cwd: sourceDir,
+            env: {
                 ...(process.env as Record<string, string>),
-                CFLAGS: '-fno-stack-protector -no-pie -U_FORTIFY_SOURCE'
+                ...{ CFLAGS: 'foo' }
+            }
+        });
+        expect(exec.exec).toHaveBeenCalledWith('make', ['-j4', 'BUILD_DOCS=none'], {
+            cwd: sourceDir,
+            env: {
+                ...(process.env as Record<string, string>),
+                ...{ CFLAGS: 'foo' }
             }
         });
         expect(exec.exec).toHaveBeenCalledWith('sudo', ['make', 'install'], {

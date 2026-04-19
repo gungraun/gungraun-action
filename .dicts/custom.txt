@@ -8,6 +8,7 @@ armv7
 badsingleword
 binstall
 callgrind
+CFLAGS
 cooldown
 debuginfo
 debuginfod
@@ -21,6 +22,7 @@ fakeDirents
 gungraun
 idlike
 INSTALL_DIR
+LDFLAGS
 libc
 libc6
 linuxmint

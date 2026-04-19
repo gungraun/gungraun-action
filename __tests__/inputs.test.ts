@@ -11,6 +11,7 @@ import {
     parseRunnerVersion,
     parseStrategies,
     parseValgrindConfigureArgs,
+    parseValgrindMakeEnvs,
     parseValgrindShaUrl,
     parseValgrindStrategies,
     parseValgrindUrl,
@@ -401,5 +402,54 @@ describe('parseValgrindConfigureArgs', () => {
         await expect(parseValgrindConfigureArgs()).rejects.toThrow(
             'Invalid valgrind-configure-args:'
         );
+    });
+});
+
+describe('parseValgrindMakeEnvs', () => {
+    it('when input empty then returns empty Map', async () => {
+        (core.getInput as jest.Mock).mockReturnValue('');
+        const result = await parseValgrindMakeEnvs();
+        expect(result.size).toBe(0);
+    });
+
+    it('when input is whitespace only then returns empty Map', async () => {
+        (core.getInput as jest.Mock).mockReturnValue('  \n  ');
+        const result = await parseValgrindMakeEnvs();
+        expect(result.size).toBe(0);
+    });
+
+    it('when simple KEY=VALUE then parses correctly', async () => {
+        (core.getInput as jest.Mock).mockReturnValue('CFLAGS=-O0');
+        const result = await parseValgrindMakeEnvs();
+        expect(Object.fromEntries(result)).toEqual({ CFLAGS: '-O0' });
+    });
+
+    it('when multiple env vars then parses all', async () => {
+        (core.getInput as jest.Mock).mockReturnValue('CFLAGS="-O0 -g" LDFLAGS=-static');
+        const result = await parseValgrindMakeEnvs();
+        expect(Object.fromEntries(result)).toEqual({ CFLAGS: '-O0 -g', LDFLAGS: '-static' });
+    });
+
+    it('when duplicate keys then last value wins', async () => {
+        (core.getInput as jest.Mock).mockReturnValue('FOO=bar FOO=baz');
+        const result = await parseValgrindMakeEnvs();
+        expect(Object.fromEntries(result)).toEqual({ FOO: 'baz' });
+    });
+
+    it('when value contains equals then splits on first equals only', async () => {
+        (core.getInput as jest.Mock).mockReturnValue('FOO=a=b');
+        const result = await parseValgrindMakeEnvs();
+        expect(Object.fromEntries(result)).toEqual({ FOO: 'a=b' });
+    });
+
+    it('when key without value then sets empty string', async () => {
+        (core.getInput as jest.Mock).mockReturnValue('VERBOSE');
+        const result = await parseValgrindMakeEnvs();
+        expect(Object.fromEntries(result)).toEqual({ VERBOSE: '' });
+    });
+
+    it('when invalid token then throws', async () => {
+        (core.getInput as jest.Mock).mockReturnValue('CFLAGS=-O0 || true');
+        await expect(parseValgrindMakeEnvs()).rejects.toThrow('Invalid valgrind-make-envs:');
     });
 });

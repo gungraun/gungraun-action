@@ -244,7 +244,8 @@ export async function installValgrind(
     githubToken: string,
     valgrindUrl: string,
     valgrindShaUrl: string,
-    configureArgs: string[] = []
+    configureArgs: string[] = [],
+    makeEnvs: Map<string, string> = new Map()
 ): Promise<void> {
     for (const strategy of strategies) {
         switch (strategy) {
@@ -267,7 +268,8 @@ export async function installValgrind(
                 const result = await installValgrindFromSource(
                     version.isAuto() ? Version.latest() : version,
                     installBuildDeps,
-                    configureArgs
+                    configureArgs,
+                    makeEnvs
                 );
                 if (result) return;
                 break;
@@ -434,7 +436,8 @@ export async function installValgrindBuildDeps(): Promise<boolean> {
 export async function installValgrindFromSource(
     version: Version,
     installBuildDeps: boolean = false,
-    configureArgs: string[] = []
+    configureArgs: string[] = [],
+    makeEnvs: Map<string, string> = new Map()
 ): Promise<boolean> {
     return withGroup('Installing valgrind from source', async () => {
         try {
@@ -460,9 +463,15 @@ export async function installValgrindFromSource(
             if (id === 'alpine') {
                 execOpts.env = {
                     CFLAGS: '-fno-stack-protector -no-pie -U_FORTIFY_SOURCE',
-                    ...(process.env as Record<string, string>)
+                    ...(process.env as Record<string, string>),
+                    ...Object.fromEntries(makeEnvs)
                 };
                 args.push('--without-mpicc');
+            } else {
+                execOpts.env = {
+                    ...(process.env as Record<string, string>),
+                    ...Object.fromEntries(makeEnvs)
+                };
             }
             args.push(...configureArgs);
 
@@ -473,7 +482,7 @@ export async function installValgrindFromSource(
             const makeArgs = [`-j${ncpus}`, 'BUILD_DOCS=none'];
 
             printInfo(`:: Running: make ${quote(args)}`);
-            await exec.exec('make', makeArgs, execOpts);
+            await exec.exec('make', makeArgs, { ...execOpts });
 
             printInfo(`:: Running: make install`);
             await execPrivileged('make', ['install'], { cwd: sourceDir });

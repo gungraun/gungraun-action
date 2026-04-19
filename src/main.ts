@@ -32,6 +32,7 @@ async function run(): Promise<void> {
         runnerVersion,
         runnerTarget,
         valgrindConfigureArgs,
+        valgrindMakeEnvs,
         valgrindStrategies,
         valgrindUrl,
         valgrindShaUrl,
@@ -58,7 +59,8 @@ async function run(): Promise<void> {
                 githubToken,
                 valgrindUrl,
                 valgrindShaUrl,
-                valgrindConfigureArgs
+                valgrindConfigureArgs,
+                valgrindMakeEnvs
             );
 
             const { id, relatedIds } = await detectPlatform();

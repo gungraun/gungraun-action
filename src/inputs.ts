@@ -3,6 +3,7 @@ import { parse as parseShellArgs } from 'shell-quote';
 import { ResolvedVersion, Version } from './version';
 import { detectProjectVersion, detectTarget } from './detect';
 import { fetchRunnerVersions, fetchSortedValgrindVersions } from './resolve';
+import { splitOnce } from './utils';
 
 export type ValgrindStrategy = 'builder' | 'system' | 'source' | 'none';
 export type RunnerStrategy = 'binstall' | 'release' | 'source' | 'none';
@@ -29,6 +30,7 @@ export interface Inputs {
     runnerTarget: string;
     runnerVersion: Version;
     valgrindConfigureArgs: string[];
+    valgrindMakeEnvs: Map<string, string>;
     valgrindStrategies: ValgrindStrategy[];
     valgrindUrl: string;
     valgrindShaUrl: string;
@@ -51,6 +53,7 @@ export async function parseInputs(): Promise<Inputs> {
 
     const valgrindVersion = await parseValgrindVersion();
     const valgrindConfigureArgs = await parseValgrindConfigureArgs();
+    const valgrindMakeEnvs = await parseValgrindMakeEnvs();
     const valgrindStrategies = await parseValgrindStrategies();
     const valgrindUrl = await parseValgrindUrl();
     const valgrindShaUrl = await parseValgrindShaUrl();
@@ -62,6 +65,7 @@ export async function parseInputs(): Promise<Inputs> {
         runnerTarget,
         runnerVersion,
         valgrindConfigureArgs,
+        valgrindMakeEnvs,
         valgrindStrategies,
         valgrindUrl,
         valgrindShaUrl,
@@ -178,6 +182,28 @@ export async function parseValgrindConfigureArgs(): Promise<string[]> {
     }
 
     return args;
+}
+
+export async function parseValgrindMakeEnvs(): Promise<Map<string, string>> {
+    const input = core.getInput('valgrind-make-envs');
+    if (!input) {
+        return new Map();
+    }
+
+    const parsed = parseShellArgs(input) as (string | object)[];
+    const envs: Map<string, string> = new Map();
+    for (const token of parsed) {
+        if (typeof token !== 'string') {
+            throw new Error(
+                `Invalid valgrind-make-envs: other tokens than strings are not allowed`
+            );
+        }
+
+        const [key, value] = splitOnce(token, '=').map((t) => t.trim());
+        envs.set(key, value);
+    }
+
+    return envs;
 }
 
 export async function parseValgrindStrategies(): Promise<ValgrindStrategy[]> {
