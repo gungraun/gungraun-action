@@ -1,4 +1,4 @@
-# Project: gungraun-action
+# Project: setup-gungraun
 
 GitHub Action to install gungraun-runner and valgrind. Written in TypeScript,
 built with @vercel/ncc, tested with Jest.

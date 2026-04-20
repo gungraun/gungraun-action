@@ -1,7 +1,7 @@
-# gungraun/action
+# gungraun/setup-gungraun
 
-GitHub Action to install `Valgrind` and `gungraun-runner` to keep
-`gungraun-runner` in sync with the repository [`gungraun`] version.
+GitHub Action to setup Gungraun and install `Valgrind` and `gungraun-runner` to
+keep `gungraun-runner` in sync with the repositories [`gungraun`] version.
 
 ## Requirements
 
@@ -16,7 +16,7 @@ included and accessible from the execution path.
 
 ```yaml
 - name: Setup gungraun-runner and Valgrind
-  uses: gungraun/action@v1
+  uses: gungraun/setup-gungraun@v1
   with:
       # Version of gungraun-runner. 'auto' detects the version from Cargo
       # metadata and installs the same version as the gungraun library. 'latest'
@@ -148,14 +148,14 @@ action sets the environment variable
 
 ```yaml
 - name: Setup gungraun-runner and Valgrind
-  uses: gungraun/action@v1
+  uses: gungraun/setup-gungraun@v1
 ```
 
 ### Install a specific runner version
 
 ```yaml
 - name: Setup gungraun-runner 0.1.0 and Valgrind
-  uses: gungraun/action@v1
+  uses: gungraun/setup-gungraun@v1
   with:
       runner-version: 0.1.0
 ```
@@ -167,7 +167,7 @@ with:
 
 ```yaml
 - name: Setup gungraun-runner only
-  uses: gungraun/action@v1
+  uses: gungraun/setup-gungraun@v1
   with:
       valgrind-strategy: none
 ```
@@ -176,7 +176,7 @@ with:
 
 ```yaml
 - name: Setup gungraun-runner and Valgrind (from source)
-  uses: gungraun/action@v1
+  uses: gungraun/setup-gungraun@v1
   with:
       valgrind-strategy: source
       install-build-deps: true
@@ -191,7 +191,7 @@ which contains a ready-to-use build of Valgrind.
 
 ```yaml
 - name: Setup gungraun-runner and Valgrind (custom binary)
-  uses: gungraun/action@v1
+  uses: gungraun/setup-gungraun@v1
   with:
       valgrind-url: https://github.com/custom/valgrind-builder/valgrind-3.23.0-x86_64-linux.tar.gz
       valgrind-sha-url: https://github.com/custom/valgrind-builder/valgrind-3.23.0-x86_64-linux.tar.gz.sha256
@@ -203,7 +203,7 @@ This will only install Valgrind with this action
 
 ```yaml
 - name: Setup Valgrind only
-  uses: gungraun/action@v1
+  uses: gungraun/setup-gungraun@v1
   with:
       runner-strategy: none
 ```

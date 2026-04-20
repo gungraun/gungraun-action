@@ -1,11 +1,12 @@
 name: Test
 
-# TODO: Run daily
 on:
   push:
     branches: [main, develop]
   pull_request:
     branches: [main]
+  schedule:
+    - cron: '00 01 * * *'
   workflow_dispatch:
 
 concurrency:

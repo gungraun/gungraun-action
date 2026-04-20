@@ -5,6 +5,10 @@ lib/
 .vagrant/
 *.box
 
+dist/*.map
+dist/*.d.ts
+dist/sourcemap-register.js
+
 Dockerfile
 compose.yml
 
