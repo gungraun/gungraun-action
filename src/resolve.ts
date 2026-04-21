@@ -1,7 +1,6 @@
 import * as exec from '@actions/exec';
 import { getOctokit } from '@actions/github';
 import {
-    escapeRegex,
     GUNGRAUN_REPO,
     isDebug,
     retry,
@@ -62,7 +61,7 @@ export async function fetchRunnerVersions(githubToken: string): Promise<Resolved
             owner,
             repo: repoName
         });
-        return data.map((d) => ResolvedVersion.fromString(d.tag_name));
+        return data.map((d: { tag_name: string }) => ResolvedVersion.fromString(d.tag_name));
     } catch (error) {
         throw new Error(`Failed to fetch gungraun-runner versions: ${(error as Error).message}`);
     }
@@ -149,7 +148,7 @@ export async function resolveValgrindBuilderAssetName(
     // Example: valgrind-3.19.0-x86_64-ubuntu-22.04.tar.gz
     if (version.isAutoOrLatest()) {
         const pattern = new RegExp(
-            String.raw`^valgrind-(\d+)\.(\d+)\.(\d+)-${escapeRegex(arch)}-${escapeRegex(platform)}\.tar\.gz$`
+            String.raw`^valgrind-(\d+)\.(\d+)\.(\d+)-${RegExp.escape(arch)}-${RegExp.escape(platform)}\.tar\.gz$`
         );
 
         const sorted = release.assets
